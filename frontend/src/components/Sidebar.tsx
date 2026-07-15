@@ -11,7 +11,7 @@ const links = [
 
 export default function Sidebar() {
   return (
-    <aside className="fixed inset-y-0 left-0 z-50 w-64 bg-gray-900 text-white flex flex-col lg:translate-x-0 -translate-x-full transition-transform duration-200">
+    <aside className="h-full w-64 bg-gray-900 text-white flex flex-col">
       <div className="flex items-center gap-3 px-6 py-5 border-b border-gray-700">
         <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-sm">
           WA
