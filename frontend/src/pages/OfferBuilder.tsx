@@ -109,7 +109,6 @@ export default function OfferBuilder() {
   const modulesWorkload = selectedModules.reduce((sum, m) => sum + m.workload, 0);
 
   const techRate = prices?.hourly_rate_technician || 0;
-  const specRate = prices?.hourly_rate_specialist || 0;
   const dietRate = prices?.full_diet_rate || 0;
   const hotelRate = prices?.hotel_rate || 0;
 
