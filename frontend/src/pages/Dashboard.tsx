@@ -69,7 +69,7 @@ export default function Dashboard() {
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Items</h2>
         <DataTable
           columns={recentColumns}
-          data={(stats?.recent_items ?? []) as unknown as Record<string, unknown>[]}
+          data={stats?.recent_items ?? []}
           emptyMessage="No recent items"
         />
       </div>
