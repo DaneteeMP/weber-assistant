@@ -95,7 +95,7 @@ export default function InstalledBasePage() {
           <StatCard
             title="Machine Types"
             value={stats.machine_types.length}
-            color="blue"
+            color="indigo"
           />
         </div>
       )}
