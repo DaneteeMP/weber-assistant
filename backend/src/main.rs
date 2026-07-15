@@ -43,6 +43,18 @@ async fn main() {
                 .put(routes::items::update_item)
                 .delete(routes::items::delete_item),
         )
+        .route(
+            "/api/installed-base",
+            axum::routing::get(routes::installed_base::list_installed_base),
+        )
+        .route(
+            "/api/installed-base/search",
+            axum::routing::get(routes::installed_base::search_installed_base),
+        )
+        .route(
+            "/api/installed-base/stats",
+            axum::routing::get(routes::installed_base::get_installed_base_stats),
+        )
         .layer(cors)
         .with_state(db_pool);
 

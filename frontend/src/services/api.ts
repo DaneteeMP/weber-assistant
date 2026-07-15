@@ -1,4 +1,4 @@
-import type { Item, CreateItem, UpdateItem, DashboardStats } from '../types';
+import type { Item, CreateItem, UpdateItem, DashboardStats, InstalledBase, InstalledBaseStats } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -52,4 +52,27 @@ export function deleteItem(id: string): Promise<void> {
   return request<void>(`/api/items/${id}`, {
     method: 'DELETE',
   });
+}
+
+export function getInstalledBase(): Promise<InstalledBase[]> {
+  return request<InstalledBase[]>('/api/installed-base');
+}
+
+export function searchInstalledBase(params: {
+  country?: string;
+  machine_type?: string;
+  component_type?: string;
+  search?: string;
+}): Promise<InstalledBase[]> {
+  const query = new URLSearchParams();
+  if (params.country) query.set('country', params.country);
+  if (params.machine_type) query.set('machine_type', params.machine_type);
+  if (params.component_type) query.set('component_type', params.component_type);
+  if (params.search) query.set('search', params.search);
+  const qs = query.toString();
+  return request<InstalledBase[]>(`/api/installed-base/search${qs ? `?${qs}` : ''}`);
+}
+
+export function getInstalledBaseStats(): Promise<InstalledBaseStats> {
+  return request<InstalledBaseStats>('/api/installed-base/stats');
 }
