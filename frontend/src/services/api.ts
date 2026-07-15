@@ -1,4 +1,8 @@
-import type { Item, CreateItem, UpdateItem, DashboardStats, InstalledBase, InstalledBaseStats } from '../types';
+import type {
+  Item, CreateItem, UpdateItem, DashboardStats,
+  InstalledBase, InstalledBaseStats,
+  ClientEquipment, ClientSummary, Module, Price, Offer, CreateOffer
+} from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -12,7 +16,7 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     const error = await res.json().catch(() => ({ message: res.statusText }));
-    throw new Error(error.message || `Request failed with status ${res.status}`);
+    throw new Error(error.message || error.error || `Request failed with status ${res.status}`);
   }
 
   if (res.status === 204) {
@@ -75,4 +79,65 @@ export function searchInstalledBase(params: {
 
 export function getInstalledBaseStats(): Promise<InstalledBaseStats> {
   return request<InstalledBaseStats>('/api/installed-base/stats');
+}
+
+// Clients
+export function getClients(search?: string): Promise<ClientSummary[]> {
+  const query = search ? `?search=${encodeURIComponent(search)}` : '';
+  return request<ClientSummary[]>(`/api/clients${query}`);
+}
+
+export function getClientEquipment(customerId: string): Promise<ClientEquipment[]> {
+  return request<ClientEquipment[]>(`/api/clients/${customerId}`);
+}
+
+export function searchEquipment(search: string): Promise<ClientEquipment[]> {
+  return request<ClientEquipment[]>(`/api/clients/search?search=${encodeURIComponent(search)}`);
+}
+
+// Modules
+export function getModules(): Promise<Module[]> {
+  return request<Module[]>('/api/modules');
+}
+
+export function getModulesByEquipment(equipment: string): Promise<Module[]> {
+  return request<Module[]>(`/api/modules/equipment/${encodeURIComponent(equipment)}`);
+}
+
+export function searchModules(search: string): Promise<Module[]> {
+  return request<Module[]>(`/api/modules/search?description=${encodeURIComponent(search)}`);
+}
+
+// Prices
+export function getPrices(): Promise<Price[]> {
+  return request<Price[]>('/api/prices');
+}
+
+// Offers
+export function getOffers(): Promise<Offer[]> {
+  return request<Offer[]>('/api/offers');
+}
+
+export function getOffer(id: string): Promise<{ offer: Offer; items: any[] }> {
+  return request<{ offer: Offer; items: any[] }>(`/api/offers/${id}`);
+}
+
+export function createOffer(data: CreateOffer): Promise<Offer> {
+  return request<Offer>('/api/offers', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function updateOffer(id: string, data: Partial<CreateOffer>): Promise<Offer> {
+  return request<Offer>(`/api/offers/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteOffer(id: string): Promise<void> {
+  return request<void>(`/api/offers/${id}`, {
+    method: 'DELETE',
+  });
 }

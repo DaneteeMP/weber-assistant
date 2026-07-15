@@ -1,4 +1,9 @@
+pub mod clients;
 pub mod dashboard;
 pub mod health;
+pub mod import_data;
 pub mod installed_base;
 pub mod items;
+pub mod modules;
+pub mod offers;
+pub mod prices;
