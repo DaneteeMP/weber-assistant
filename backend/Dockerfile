@@ -1,5 +1,5 @@
 FROM rust:1.85-slim as builder
-WORKDIR /app
+WORKDIR /app/backend
 COPY . .
 RUN cargo build --release
 
