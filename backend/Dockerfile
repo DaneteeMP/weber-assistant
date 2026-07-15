@@ -1,4 +1,4 @@
-FROM rust:1.87-slim as builder
+FROM rust:slim as builder
 WORKDIR /app
 COPY backend/ backend/
 RUN cd backend && cargo build --release
