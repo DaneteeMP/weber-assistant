@@ -1,6 +1,12 @@
+pub mod basic_kit;
 pub mod client_equipment;
+pub mod customer;
+pub mod distance;
+pub mod equipment;
+pub mod guardian_summary;
 pub mod installed_base;
 pub mod item;
 pub mod module;
 pub mod offer;
 pub mod price;
+pub mod workload;

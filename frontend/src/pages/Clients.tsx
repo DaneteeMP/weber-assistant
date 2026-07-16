@@ -1,18 +1,23 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getClients, getClientEquipment } from '../services/api';
-import type { ClientSummary, ClientEquipment } from '../types';
+import { getClients, getClientEquipment, getEquipmentByCustomer, getClientSubsidiaries } from '../services/api';
+import type { ClientSummary, ClientEquipment, Equipment } from '../types';
 
 export default function Clients() {
   const navigate = useNavigate();
   const [clients, setClients] = useState<ClientSummary[]>([]);
-  const [selectedClient, setSelectedClient] = useState<string | null>(null);
-  const [equipment, setEquipment] = useState<ClientEquipment[]>([]);
+  const [selectedClient, setSelectedClient] = useState<ClientSummary | null>(null);
+  const [equipment, setEquipment] = useState<Equipment[]>([]);
+  const [clientEquipment, setClientEquipment] = useState<ClientEquipment[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [loadingEquipment, setLoadingEquipment] = useState(false);
+  const [activeTab, setActiveTab] = useState<'machines' | 'modules'>('machines');
+  const [subsidiaries, setSubsidiaries] = useState<string[]>([]);
+  const [selectedSubsidiary, setSelectedSubsidiary] = useState('');
 
   useEffect(() => {
+    getClientSubsidiaries().then(setSubsidiaries).catch(console.error);
     loadClients();
   }, []);
 
@@ -21,12 +26,12 @@ export default function Clients() {
       loadClients();
     }, 300);
     return () => clearTimeout(timeout);
-  }, [search]);
+  }, [search, selectedSubsidiary]);
 
   async function loadClients() {
     setLoading(true);
     try {
-      const data = await getClients(search || undefined);
+      const data = await getClients(search || undefined, selectedSubsidiary || undefined);
       setClients(data);
     } catch (err) {
       console.error('Error loading clients:', err);
@@ -34,23 +39,26 @@ export default function Clients() {
     setLoading(false);
   }
 
-  async function selectClient(customerId: string) {
-    setSelectedClient(customerId);
+  async function selectClient(client: ClientSummary) {
+    setSelectedClient(client);
     setLoadingEquipment(true);
+    setActiveTab('machines');
     try {
-      const data = await getClientEquipment(customerId);
-      setEquipment(data);
+      const [eqData, ceData] = await Promise.all([
+        getEquipmentByCustomer(client.customer_id),
+        getClientEquipment(client.customer_id),
+      ]);
+      setEquipment(eqData);
+      setClientEquipment(ceData);
     } catch (err) {
-      console.error('Error loading equipment:', err);
+      console.error('Error loading data:', err);
     }
     setLoadingEquipment(false);
   }
 
-  function goToNewOffer(customerId: string) {
+  function goToOfferViewer(customerId: string) {
     navigate(`/offers/new?customer_id=${customerId}`);
   }
-
-  const totalModules = equipment.reduce((sum, e) => sum + (e.import_amount || 0), 0);
 
   return (
     <div className="p-6">
@@ -63,14 +71,24 @@ export default function Clients() {
         {/* Client List */}
         <div className="lg:col-span-1">
           <div className="bg-white rounded-lg shadow">
-            <div className="p-4 border-b">
+            <div className="p-4 border-b space-y-2">
               <input
                 type="text"
-                placeholder="Buscar cliente..."
+                placeholder="Buscar por nombre o ID..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1D4F91]"
               />
+              <select
+                value={selectedSubsidiary}
+                onChange={(e) => setSelectedSubsidiary(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1D4F91]"
+              >
+                <option value="">Todos los paises</option>
+                {subsidiaries.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
             </div>
             <div className="divide-y max-h-[600px] overflow-y-auto">
               {loading ? (
@@ -81,14 +99,17 @@ export default function Clients() {
                 clients.map((client) => (
                   <button
                     key={client.customer_id}
-                    onClick={() => selectClient(client.customer_id)}
+                    onClick={() => selectClient(client)}
                     className={`w-full p-4 text-left hover:bg-gray-50 transition ${
-                      selectedClient === client.customer_id ? 'bg-blue-50 border-l-4 border-blue-500' : ''
+                      selectedClient?.customer_id === client.customer_id ? 'bg-blue-50 border-l-4 border-blue-500' : ''
                     }`}
                   >
-                    <div className="font-medium text-gray-900">{client.customer_id}</div>
-                    <div className="text-sm text-gray-500">
-                      {client.equipment_count} equipo{client.equipment_count !== 1 ? 's' : ''}
+                    <div className="font-medium text-gray-900">{client.account_name}</div>
+                    <div className="text-xs text-gray-400 mt-0.5">{client.customer_id}</div>
+                    <div className="flex items-center gap-2 mt-1 text-sm text-gray-500">
+                      <span>{client.equipment_count} equipo{client.equipment_count !== 1 ? 's' : ''}</span>
+                      {client.subsidiary && <span>· {client.subsidiary}</span>}
+                      {client.account_city && <span>· {client.account_city}</span>}
                     </div>
                   </button>
                 ))
@@ -97,67 +118,128 @@ export default function Clients() {
           </div>
         </div>
 
-        {/* Equipment Details */}
+        {/* Details */}
         <div className="lg:col-span-2">
           {selectedClient ? (
             <div className="bg-white rounded-lg shadow">
-              <div className="p-4 border-b flex justify-between items-center">
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900">
-                    Equipos del cliente {selectedClient}
-                  </h2>
-                  <p className="text-sm text-gray-500">
-                    {equipment.length} módulo{equipment.length !== 1 ? 's' : ''} · Importe total: {totalModules.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
-                  </p>
-                </div>
+              {/* Header */}
+              <div className="p-4 border-b">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900">{selectedClient.account_name}</h2>
+                    <div className="text-sm text-gray-500 mt-1 space-y-0.5">
+                      <div>ID: {selectedClient.customer_id}</div>
+                      {selectedClient.account_address && <div>{selectedClient.account_address}</div>}
+                      {(selectedClient.account_city || selectedClient.account_country) && (
+                        <div>{[selectedClient.account_city, selectedClient.account_province, selectedClient.account_country].filter(Boolean).join(', ')}</div>
+                      )}
+                    </div>
+                  </div>
                 <button
-                  onClick={() => goToNewOffer(selectedClient)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                  onClick={() => goToOfferViewer(selectedClient.customer_id)}
+                  className="px-4 py-2 text-white rounded-lg hover:opacity-90 transition"
+                  style={{ backgroundColor: '#1D4F91' }}
                 >
-                  + Nueva Oferta
+                  Ver Ofertas
+                </button>
+                </div>
+              </div>
+
+              {/* Tabs */}
+              <div className="flex border-b">
+                <button
+                  onClick={() => setActiveTab('machines')}
+                  className={`px-4 py-3 text-sm font-medium transition ${
+                    activeTab === 'machines'
+                      ? 'text-[#1D4F91] border-b-2 border-[#1D4F91]'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Máquinas ({equipment.length})
+                </button>
+                <button
+                  onClick={() => setActiveTab('modules')}
+                  className={`px-4 py-3 text-sm font-medium transition ${
+                    activeTab === 'modules'
+                      ? 'text-[#1D4F91] border-b-2 border-[#1D4F91]'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Módulos ({clientEquipment.length})
                 </button>
               </div>
+
+              {/* Content */}
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left font-medium text-gray-600">Equipo</th>
-                      <th className="px-4 py-3 text-left font-medium text-gray-600">Descripción</th>
-                      <th className="px-4 py-3 text-right font-medium text-gray-600">Importe</th>
-                      <th className="px-4 py-3 text-right font-medium text-gray-600">Workload</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {loadingEquipment ? (
+                {loadingEquipment ? (
+                  <div className="p-8 text-center text-gray-500">Cargando...</div>
+                ) : activeTab === 'machines' ? (
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50">
                       <tr>
-                        <td colSpan={4} className="px-4 py-8 text-center text-gray-500">
-                          Cargando equipos...
-                        </td>
+                        <th className="px-4 py-3 text-left font-medium text-gray-600">Configuración</th>
+                        <th className="px-4 py-3 text-left font-medium text-gray-600">Descripción</th>
+                        <th className="px-4 py-3 text-left font-medium text-gray-600">Modelo</th>
+                        <th className="px-4 py-3 text-left font-medium text-gray-600">Serie</th>
+                        <th className="px-4 py-3 text-right font-medium text-gray-600">Año</th>
                       </tr>
-                    ) : equipment.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className="px-4 py-8 text-center text-gray-500">
-                          No se encontraron equipos para este cliente
-                        </td>
-                      </tr>
-                    ) : (
-                      equipment.map((item) => (
-                        <tr key={item.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 font-medium text-gray-900">{item.equipment}</td>
-                          <td className="px-4 py-3 text-gray-600">{item.description}</td>
-                          <td className="px-4 py-3 text-right text-gray-900">
-                            {item.import_amount != null
-                              ? item.import_amount.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })
-                              : '-'}
-                          </td>
-                          <td className="px-4 py-3 text-right text-gray-600">
-                            {item.workload != null ? `${item.workload}h` : '-'}
+                    </thead>
+                    <tbody className="divide-y">
+                      {equipment.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                            No hay máquinas registradas para este cliente
                           </td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                      ) : (
+                        equipment.map((eq) => (
+                          <tr key={eq.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 font-medium text-gray-900">{eq.configuration || '-'}</td>
+                            <td className="px-4 py-3 text-gray-600">{eq.description || '-'}</td>
+                            <td className="px-4 py-3 text-gray-600">{eq.model || '-'}</td>
+                            <td className="px-4 py-3 text-gray-600">{eq.serial || '-'}</td>
+                            <td className="px-4 py-3 text-right text-gray-600">{eq.year || '-'}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left font-medium text-gray-600">Equipo</th>
+                        <th className="px-4 py-3 text-left font-medium text-gray-600">Descripción</th>
+                        <th className="px-4 py-3 text-right font-medium text-gray-600">Importe</th>
+                        <th className="px-4 py-3 text-right font-medium text-gray-600">Workload</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {clientEquipment.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="px-4 py-8 text-center text-gray-500">
+                            No hay módulos registrados para este cliente
+                          </td>
+                        </tr>
+                      ) : (
+                        clientEquipment.map((item) => (
+                          <tr key={item.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 font-medium text-gray-900">{item.equipment}</td>
+                            <td className="px-4 py-3 text-gray-600">{item.description}</td>
+                            <td className="px-4 py-3 text-right text-gray-900">
+                              {item.import_amount != null
+                                ? item.import_amount.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })
+                                : '-'}
+                            </td>
+                            <td className="px-4 py-3 text-right text-gray-600">
+                              {item.workload != null ? `${item.workload}h` : '-'}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                )}
               </div>
             </div>
           ) : (

@@ -62,7 +62,7 @@ export default function InstalledBasePage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="inline-block w-8 h-8 border-4 border-gray-200 border-t-indigo-600 rounded-full animate-spin" />
+        <div className="inline-block w-8 h-8 border-4 border-gray-200 border-t-[#1D4F91] rounded-full animate-spin" />
       </div>
     );
   }
@@ -107,12 +107,12 @@ export default function InstalledBasePage() {
             placeholder="Search accounts, equipment..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#1D4F91] focus:border-[#1D4F91] outline-none"
           />
           <select
             value={countryFilter}
             onChange={(e) => setCountryFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#1D4F91] focus:border-[#1D4F91] outline-none"
           >
             <option value="">All Countries</option>
             {uniqueCountries.map((c) => (
@@ -124,7 +124,7 @@ export default function InstalledBasePage() {
           <select
             value={machineFilter}
             onChange={(e) => setMachineFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#1D4F91] focus:border-[#1D4F91] outline-none"
           >
             <option value="">All Machines</option>
             {uniqueMachines.map((m) => (
@@ -136,7 +136,7 @@ export default function InstalledBasePage() {
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#1D4F91] focus:border-[#1D4F91] outline-none"
           >
             <option value="">All Types</option>
             {uniqueTypes.map((t) => (
@@ -164,7 +164,7 @@ export default function InstalledBasePage() {
                   <div className="flex items-center gap-2">
                     <div className="w-32 bg-gray-100 rounded-full h-2">
                       <div
-                        className="bg-indigo-500 h-2 rounded-full"
+                        className="bg-[#1D4F91] h-2 rounded-full"
                         style={{
                           width: `${(c.count / stats.total_equipments) * 100}%`,
                         }}

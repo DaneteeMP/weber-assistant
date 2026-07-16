@@ -60,12 +60,24 @@ async fn main() {
             axum::routing::get(routes::clients::list_clients),
         )
         .route(
+            "/api/clients/subsidiaries",
+            axum::routing::get(routes::clients::list_subsidiaries),
+        )
+        .route(
             "/api/clients/search",
             axum::routing::get(routes::clients::search_equipment),
         )
         .route(
             "/api/clients/{customer_id}",
             axum::routing::get(routes::clients::get_client_equipment),
+        )
+        .route(
+            "/api/equipment/{customer_id}",
+            axum::routing::get(routes::equipment::get_equipment_by_customer),
+        )
+        .route(
+            "/api/equipment/search",
+            axum::routing::get(routes::equipment::search_equipment),
         )
         .route(
             "/api/modules",
@@ -84,9 +96,21 @@ async fn main() {
             axum::routing::get(routes::prices::get_prices),
         )
         .route(
+            "/api/distances",
+            axum::routing::get(routes::distances::list_distances),
+        )
+        .route(
+            "/api/distances/search",
+            axum::routing::get(routes::distances::search_distances),
+        )
+        .route(
             "/api/offers",
             axum::routing::get(routes::offers::list_offers)
                 .post(routes::offers::create_offer),
+        )
+        .route(
+            "/api/offers/customer/{customer_id}",
+            axum::routing::get(routes::offers::list_offers_by_customer),
         )
         .route(
             "/api/offers/{id}",
@@ -95,8 +119,28 @@ async fn main() {
                 .delete(routes::offers::delete_offer),
         )
         .route(
+            "/api/guardian-summary/customer/{customer_id}",
+            axum::routing::get(routes::guardian_summary::list_by_customer),
+        )
+        .route(
+            "/api/guardian-summary/{id}",
+            axum::routing::get(routes::guardian_summary::get_one),
+        )
+        .route(
+            "/api/basic-kit",
+            axum::routing::get(routes::basic_kit::list_basic_kit),
+        )
+        .route(
+            "/api/workload",
+            axum::routing::get(routes::workload::list_workload),
+        )
+        .route(
             "/api/import/{table}",
             axum::routing::post(routes::import_data::import_data),
+        )
+        .route(
+            "/api/import/reset",
+            axum::routing::post(routes::import_data::reset_data),
         )
         .layer(cors)
         .with_state(db_pool);

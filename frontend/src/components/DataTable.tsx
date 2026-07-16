@@ -21,7 +21,7 @@ export default function DataTable<T>({
     return (
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="p-12 text-center text-gray-500">
-          <div className="inline-block w-8 h-8 border-4 border-gray-200 border-t-indigo-600 rounded-full animate-spin" />
+          <div className="inline-block w-8 h-8 border-4 border-gray-200 border-t-[#1D4F91] rounded-full animate-spin" />
           <p className="mt-3 text-sm">Loading...</p>
         </div>
       </div>

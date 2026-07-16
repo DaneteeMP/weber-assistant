@@ -26,6 +26,26 @@ pub async fn list_offers(
     Ok(Json(rows))
 }
 
+pub async fn list_offers_by_customer(
+    State(db): State<PgPool>,
+    Path(customer_id): Path<String>,
+) -> Result<Json<Vec<Offer>>, (StatusCode, Json<Value>)> {
+    let rows = sqlx::query_as::<_, Offer>(
+        "SELECT * FROM offers WHERE customer_id = $1 ORDER BY date_guardian DESC",
+    )
+    .bind(&customer_id)
+    .fetch_all(&db)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": e.to_string() })),
+        )
+    })?;
+
+    Ok(Json(rows))
+}
+
 pub async fn get_offer(
     State(db): State<PgPool>,
     Path(id): Path<uuid::Uuid>,

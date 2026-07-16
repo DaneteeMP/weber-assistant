@@ -1,582 +1,597 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { getClientEquipment, getModulesByEquipment, getPrices, createOffer } from '../services/api';
-import type { ClientEquipment, Module, Price } from '../types';
-
-interface SelectedModule {
-  module: Module;
-  importAmount: number;
-  workload: number;
-}
+import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import {
+  getClients, getClientEquipment, getEquipmentByCustomer,
+  getGuardianSummaryByCustomer, getDistances, getPrices, getOffersByCustomer, getBasicKit
+} from '../services/api';
+import type { ClientSummary, Equipment, ClientEquipment, Distance, Price, GuardianSummary, Offer, BasicKit } from '../types';
 
 export default function OfferBuilder() {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const customerId = searchParams.get('customer_id') || '';
+  const [clients, setClients] = useState<ClientSummary[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState('');
+  const [clientSearch, setClientSearch] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const [equipmentList, setEquipmentList] = useState<ClientEquipment[]>([]);
-  const [selectedEquipment, setSelectedEquipment] = useState<string>('');
-  const [modules, setModules] = useState<Module[]>([]);
-  const [selectedModules, setSelectedModules] = useState<SelectedModule[]>([]);
+  const [customer, setCustomer] = useState<ClientSummary | null>(null);
+  const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
+  const [clientEquipmentList, setClientEquipmentList] = useState<ClientEquipment[]>([]);
+  const [summaries, setSummaries] = useState<GuardianSummary[]>([]);
+  const [offers, setOffers] = useState<Offer[]>([]);
+  const [selectedOffer, setSelectedOffer] = useState<Offer | null>(null);
+  const [distances, setDistances] = useState<Distance[]>([]);
   const [prices, setPrices] = useState<Price | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-
-  // Offer fields
-  const [offerId, setOfferId] = useState('');
-  const [accountName, setAccountName] = useState('');
-  const [responsiblePerson, setResponsiblePerson] = useState('');
-  const [language, setLanguage] = useState('Español');
-  const [inspectionFrequency, setInspectionFrequency] = useState('Anual');
-  const [diets, setDiets] = useState(0);
-  const [hotelNights, setHotelNights] = useState(0);
-  const [trip, setTrip] = useState(0);
-  const [tripHours, setTripHours] = useState(0);
-  const [workHours, setWorkHours] = useState(0);
-  const [basicKit, setBasicKit] = useState(false);
-  const [basicKitHours, setBasicKitHours] = useState(0);
-  const [basicKitPrice, setBasicKitPrice] = useState(0);
-  const [discount, setDiscount] = useState(0);
-  const [generalComments, setGeneralComments] = useState('');
+  const [basicKits, setBasicKits] = useState<BasicKit[]>([]);
+  const [selectedEquipment, setSelectedEquipment] = useState<string[]>([]);
 
   useEffect(() => {
-    loadData();
-  }, [customerId]);
-
-  useEffect(() => {
-    if (selectedEquipment) {
-      loadModules(selectedEquipment);
-    }
-  }, [selectedEquipment]);
-
-  async function loadData() {
-    setLoading(true);
-    try {
-      const [equipData, priceData] = await Promise.all([
-        getClientEquipment(customerId),
-        getPrices(),
-      ]);
-      setEquipmentList(equipData);
-      if (priceData.length > 0) {
-        setPrices(priceData[0]);
+    Promise.all([
+      getClients().then(setClients),
+      getDistances().then(setDistances),
+      getPrices().then(p => { if (p.length > 0) setPrices(p[0]); }),
+      getBasicKit().then(setBasicKits),
+    ]).then(() => {
+      const urlCustomerId = searchParams.get('customer_id');
+      const urlOfferId = searchParams.get('offer');
+      if (urlCustomerId) {
+        loadClient(urlCustomerId).then((result) => {
+          if (result && urlOfferId) {
+            const found = result.offerData.find(o => o.id_guardian_offer === urlOfferId);
+            if (found) {
+              setSelectedOffer(found);
+              const equipForOffer = result.ceData
+                .filter(ce => ce.id_guardian_offer === found.id_guardian_offer)
+                .map(ce => ce.equipment)
+                .filter((v, i, a) => a.indexOf(v) === i);
+              setSelectedEquipment(equipForOffer);
+            }
+          }
+        });
       }
+    });
+  }, []);
+
+  async function loadClient(customerId: string) {
+    setSelectedClientId(customerId);
+    setClientSearch('');
+    setLoading(true);
+    setSelectedOffer(null);
+    setSelectedEquipment([]);
+    try {
+      const [eqData, ceData, summaryData, offerData] = await Promise.all([
+        getEquipmentByCustomer(customerId),
+        getClientEquipment(customerId),
+        getGuardianSummaryByCustomer(customerId),
+        getOffersByCustomer(customerId),
+      ]);
+      setEquipmentList(eqData);
+      setClientEquipmentList(ceData);
+      setSummaries(summaryData);
+      setOffers(offerData);
+      const cl = clients.find(c => c.customer_id === customerId) || null;
+      setCustomer(cl);
+      setLoading(false);
+      return { ceData, offerData };
     } catch (err) {
       console.error('Error loading data:', err);
+      setLoading(false);
     }
-    setLoading(false);
+    return { ceData: [], offerData: [] };
   }
 
-  async function loadModules(equipment: string) {
-    try {
-      const mods = await getModulesByEquipment(equipment);
-      setModules(mods);
-      setSelectedModules([]);
-    } catch (err) {
-      console.error('Error loading modules:', err);
-    }
-  }
+  const filteredClients = clients.filter(c =>
+    c.account_name.toLowerCase().includes(clientSearch.toLowerCase()) ||
+    c.customer_id.includes(clientSearch)
+  );
 
-  function toggleModule(mod: Module) {
-    const existing = selectedModules.find((m) => m.module.id === mod.id);
-    if (existing) {
-      setSelectedModules(selectedModules.filter((m) => m.module.id !== mod.id));
-    } else {
-      const equipItem = equipmentList.find((e) => e.equipment === mod.description);
-      setSelectedModules([
-        ...selectedModules,
-        {
-          module: mod,
-          importAmount: equipItem?.import_amount || 0,
-          workload: equipItem?.workload || 0,
-        },
-      ]);
-    }
-  }
-
-  function updateModuleImport(moduleId: string, value: number) {
-    setSelectedModules((prev) =>
-      prev.map((m) => (m.module.id === moduleId ? { ...m, importAmount: value } : m))
-    );
-  }
-
-  function updateModuleWorkload(moduleId: string, value: number) {
-    setSelectedModules((prev) =>
-      prev.map((m) => (m.module.id === moduleId ? { ...m, workload: value } : m))
-    );
-  }
-
-  const modulesTotal = selectedModules.reduce((sum, m) => sum + m.importAmount, 0);
-  const modulesWorkload = selectedModules.reduce((sum, m) => sum + m.workload, 0);
-
+  const kmRate = prices?.km_rate || 0;
   const techRate = prices?.hourly_rate_technician || 0;
   const dietRate = prices?.full_diet_rate || 0;
+  const halfDietRate = prices?.half_diet_rate || 0;
   const hotelRate = prices?.hotel_rate || 0;
+  const discountRate = 0.15;
 
-  const dietCost = diets * dietRate;
-  const hotelCost = hotelNights * hotelRate;
-  const travelCost = trip;
-  const workCost = workHours * techRate;
-  const basicKitCost = basicKit ? basicKitHours * techRate + basicKitPrice : 0;
+  const province = customer?.account_province || '';
+  const distance = useMemo(() => {
+    if (!province) return null;
+    return distances.find(d => d.province.toLowerCase() === province.toLowerCase()) || null;
+  }, [province, distances]);
 
-  const subtotal = modulesTotal + dietCost + hotelCost + travelCost + workCost + basicKitCost;
-  const totalEnd = subtotal - discount;
-  const totalHours = tripHours + workHours + modulesWorkload + (basicKit ? basicKitHours : 0);
+  const km = distance?.km || 0;
+  const tripHoursBase = distance?.trip_hours || 0;
 
-  async function handleSave() {
-    if (!offerId.trim()) {
-      alert('Introduce el ID de la oferta');
-      return;
-    }
+  const availableEquipment = useMemo(() => {
+    const allEquipmentCodes = new Set(clientEquipmentList.map(ce => ce.equipment));
+    return Array.from(allEquipmentCodes).filter(e => !selectedEquipment.includes(e));
+  }, [clientEquipmentList, selectedEquipment]);
 
-    setSaving(true);
-    try {
-      await createOffer({
-        id_guardian_offer: offerId,
-        customer_id: customerId,
-        account_name: accountName || undefined,
-        responsible_person: responsiblePerson || undefined,
-        language,
-        inspection_frequency: inspectionFrequency,
-        diets,
-        hotel_nights: hotelNights,
-        trip,
-        trip_hours: tripHours,
-        work_hours: workHours,
-        total_hours: totalHours,
-        basic_kit: basicKit,
-        basic_kit_hours: basicKit ? basicKitHours : 0,
-        basic_kit_price: basicKit ? basicKitPrice : 0,
-        discount,
-        total: subtotal,
-        total_end: totalEnd,
-        general_comments: generalComments || undefined,
-        items: selectedModules.map((m, i) => ({
-          customer_id: customerId,
-          description: m.module.component_name,
-          equipment: m.module.description,
-          import_amount: m.importAmount,
-          workload: m.workload,
-          row_guardian: i + 1,
-        })),
-      });
-      navigate('/offers');
-    } catch (err) {
-      console.error('Error creating offer:', err);
-      alert('Error al crear la oferta');
-    }
-    setSaving(false);
-  }
+  const selectedEquipmentModules = useMemo(() => {
+    if (selectedEquipment.length === 0) return [];
+    return clientEquipmentList.filter(ce => selectedEquipment.includes(ce.equipment));
+  }, [clientEquipmentList, selectedEquipment]);
 
-  if (loading) {
-    return (
-      <div className="p-6">
-        <div className="text-center text-gray-500">Cargando datos...</div>
-      </div>
+  const uniqueEquipmentInOffer = useMemo(() => {
+    const set = new Set(selectedEquipmentModules.map(m => m.equipment));
+    return Array.from(set);
+  }, [selectedEquipmentModules]);
+
+  function toggleEquipment(equipCode: string) {
+    setSelectedEquipment(prev =>
+      prev.includes(equipCode)
+        ? prev.filter(e => e !== equipCode)
+        : [...prev, equipCode]
     );
   }
 
+  const totalWorkLoad = useMemo(() => {
+    return selectedEquipmentModules.reduce((sum, m) => sum + (m.workload || 0), 0);
+  }, [selectedEquipmentModules]);
+
+  const reportHours = useMemo(() => {
+    return uniqueEquipmentInOffer.length * 2;
+  }, [uniqueEquipmentInOffer]);
+
+  const basicKitInfo = useMemo(() => {
+    if (!selectedOffer?.basic_kit) return { hours: 0, price: 0 };
+    let totalHours = 0;
+    let totalPrice = 0;
+    for (const eq of uniqueEquipmentInOffer) {
+      const equipRecord = equipmentList.find(e => e.description === eq);
+      if (equipRecord?.configuration) {
+        const kit = basicKits.find(bk => bk.model === equipRecord.configuration);
+        if (kit) {
+          totalHours += kit.workload_basic_kit || 0;
+          totalPrice += kit.spare_parts || 0;
+        }
+      }
+    }
+    return { hours: totalHours, price: totalPrice };
+  }, [selectedOffer, uniqueEquipmentInOffer, equipmentList, basicKits]);
+
+  const calc = useMemo(() => {
+    const workHours = totalWorkLoad;
+    const bkHours = selectedOffer?.basic_kit ? basicKitInfo.hours : 0;
+    const rptHours = reportHours;
+
+    let totalHoursRaw = tripHoursBase + workHours + bkHours + rptHours;
+    const totalHoursRounded = Math.ceil(totalHoursRaw / 8) * 8;
+    const adjustment = totalHoursRounded - totalHoursRaw;
+
+    let adjustedWorkHours = workHours + adjustment;
+    let adjustedBkHours = bkHours;
+    if (selectedOffer?.basic_kit && adjustment > 0) {
+      const halfAdj = Math.floor(adjustment / 2);
+      adjustedBkHours = bkHours + halfAdj;
+      adjustedWorkHours = workHours + adjustment - halfAdj;
+    }
+    if (adjustedWorkHours < 1) {
+      adjustedWorkHours = 1;
+      adjustedBkHours = Math.max(0, adjustedBkHours - 1);
+    }
+
+    const totalHours = totalHoursRounded;
+    const numDays = Math.max(1, Math.floor(totalHours / 8));
+
+    let tripCost = 0;
+    let tripHoursVal = tripHoursBase;
+    let diets = 0;
+    let hotelNights = 0;
+
+    if (km < 200) {
+      tripCost = (km * kmRate) * numDays;
+      tripHoursVal = tripHoursBase * numDays;
+      diets = numDays * halfDietRate;
+    } else {
+      tripCost = (km * kmRate) + (tripHoursBase * techRate);
+      hotelNights = (numDays - 1) * hotelRate;
+      diets = (numDays - 1) * dietRate + halfDietRate;
+    }
+
+    const expensesImport = tripCost + diets + hotelNights;
+    const hoursImport = totalHours * techRate;
+    const discount = hoursImport * discountRate;
+    const bkPrice = selectedOffer?.basic_kit ? basicKitInfo.price : 0;
+    const total = hoursImport + discount + expensesImport + bkPrice;
+    const totalEnd = total - discount;
+
+    return {
+      workHours: adjustedWorkHours,
+      bkHours: adjustedBkHours,
+      reportHours: rptHours,
+      totalHours,
+      numDays,
+      tripCost,
+      tripHours: tripHoursVal,
+      diets,
+      hotelNights,
+      expensesImport,
+      hoursImport,
+      discount,
+      bkPrice,
+      total,
+      totalEnd,
+    };
+  }, [totalWorkLoad, tripHoursBase, reportHours, basicKitInfo, km, kmRate, techRate, dietRate, halfDietRate, hotelRate, selectedOffer]);
+
+  const moduleRows = useMemo(() => {
+    return selectedEquipmentModules.map((m, i) => ({
+      pos: i + 1,
+      equipment: m.equipment,
+      module: m.description,
+      importAmount: m.import_amount || 0,
+      workload: m.workload || 0,
+    }));
+  }, [selectedEquipmentModules]);
+
+  const colorMap = useMemo(() => {
+    const colors = ['#e3f2fd', '#fce4ec', '#e8f5e9', '#fff3e0', '#f3e5f5', '#e0f7fa', '#fff9c4', '#efebe9'];
+    const map: Record<string, string> = {};
+    uniqueEquipmentInOffer.forEach((eq, i) => {
+      map[eq] = colors[i % colors.length];
+    });
+    return map;
+  }, [uniqueEquipmentInOffer]);
+
   return (
-    <div className="p-6">
-      <div className="mb-6 flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Nueva Oferta</h1>
-          <p className="text-gray-500 mt-1">Cliente: {customerId}</p>
-        </div>
-        <div className="flex gap-3">
-          <button
-            onClick={() => navigate(-1)}
-            className="px-4 py-2 border rounded-lg hover:bg-gray-50 transition"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
-          >
-            {saving ? 'Guardando...' : 'Guardar Oferta'}
-          </button>
+    <div className="h-screen flex flex-col bg-gray-100">
+      {/* Header */}
+      <div className="text-white px-6 py-3 flex items-center justify-between shadow" style={{ background: 'linear-gradient(135deg, #1D4F91, #2563EB)' }}>
+        <h1 className="text-xl font-bold tracking-wide">OFERTA GUARDIAN</h1>
+        <div className="flex gap-2">
+          <button className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded text-sm font-medium transition">PRINT PDF</button>
+          <button className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded text-sm font-medium transition">DELETE OFFER</button>
+          <button className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded text-sm font-medium transition">CLOSE OFFER</button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Left: Config */}
-        <div className="xl:col-span-1 space-y-6">
-          {/* Basic Info */}
-          <div className="bg-white rounded-lg shadow p-4">
-            <h3 className="font-semibold text-gray-900 mb-3">Información Básica</h3>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">ID Oferta *</label>
-                <input
-                  type="text"
-                  value={offerId}
-                  onChange={(e) => setOfferId(e.target.value)}
-                  placeholder="WGA-XX-XX-XX"
-                  className="mt-1 w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+      <div className="flex-1 overflow-auto p-4 space-y-3">
+        {/* Customer + Offer info row */}
+        <div className="bg-white rounded-lg shadow p-4">
+          <div className="grid grid-cols-12 gap-4">
+            {/* Customer Data */}
+            <div className="col-span-5 border-r pr-4">
+              <div className="text-xs font-bold text-gray-500 uppercase mb-2">Customer data</div>
+              <div className="relative mb-2">
+                <select
+                  value={selectedClientId}
+                  onChange={e => {
+                    const cid = e.target.value;
+                    if (cid) loadClient(cid);
+                    else {
+                      setSelectedClientId('');
+                      setCustomer(null);
+                      setEquipmentList([]);
+                      setClientEquipmentList([]);
+                      setSummaries([]);
+                      setOffers([]);
+                      setSelectedOffer(null);
+                    }
+                  }}
+                  className="w-full px-2 py-1.5 border rounded text-sm bg-blue-50"
+                >
+                  <option value="">Seleccionar cliente...</option>
+                  {filteredClients.slice(0, 50).map(c => (
+                    <option key={c.customer_id} value={c.customer_id}>
+                      {c.customer_id}  {c.account_name}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Nombre Cliente</label>
-                <input
-                  type="text"
-                  value={accountName}
-                  onChange={(e) => setAccountName(e.target.value)}
-                  className="mt-1 w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Técnico Responsable</label>
-                <input
-                  type="text"
-                  value={responsiblePerson}
-                  onChange={(e) => setResponsiblePerson(e.target.value)}
-                  className="mt-1 w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Idioma</label>
-                  <select
-                    value={language}
-                    onChange={(e) => setLanguage(e.target.value)}
-                    className="mt-1 w-full px-3 py-2 border rounded-lg"
-                  >
-                    <option value="Español">Español</option>
-                    <option value="Portugués">Portugués</option>
-                    <option value="Inglés">Inglés</option>
-                    <option value="Francés">Francés</option>
-                    <option value="Alemán">Alemán</option>
-                  </select>
+              {customer && (
+                <div className="text-sm">
+                  <div className="font-semibold">{customer.account_name}</div>
+                  <div className="text-gray-600">{customer.account_address}</div>
+                  <div className="text-gray-600">{customer.account_city}, {customer.account_province} ({customer.account_country})</div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Frecuencia</label>
-                  <select
-                    value={inspectionFrequency}
-                    onChange={(e) => setInspectionFrequency(e.target.value)}
-                    className="mt-1 w-full px-3 py-2 border rounded-lg"
-                  >
-                    <option value="Anual">Anual</option>
-                    <option value="Semestral">Semestral</option>
-                    <option value="Trimestral">Trimestral</option>
+              )}
+            </div>
+
+            {/* Offer Info */}
+            <div className="col-span-4 border-r pr-4">
+              <div className="space-y-1.5 text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-500 w-28">Offer no.:</span>
+                  <span className="font-mono font-bold">{selectedOffer?.id_guardian_offer || '-'}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-500 w-28">Offer date:</span>
+                  <span>{selectedOffer?.date_guardian || new Date().toLocaleDateString('es-ES')}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-500 w-28">Acceptance data:</span>
+                  <span className="border-b border-gray-300 min-w-[120px] inline-block">{summaries.find(s => s.acceptance_date)?.acceptance_date || ''}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-500 w-28">Guardian type:</span>
+                  <select className="border rounded px-1 py-0.5 text-sm bg-blue-50" defaultValue={selectedOffer?.id_guardian_offer?.includes('-01-') ? 'Basic Kit' : selectedOffer?.id_guardian_offer?.includes('-02-') ? 'Audit' : selectedOffer?.id_guardian_offer?.includes('-03-') ? 'Off-Guardian' : 'Audit'}>
+                    <option>Basic Kit</option>
+                    <option>Audit</option>
+                    <option>Off-Guardian</option>
+                    <option>Campaign</option>
                   </select>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Costs */}
-          <div className="bg-white rounded-lg shadow p-4">
-            <h3 className="font-semibold text-gray-900 mb-3">Costes Adicionales</h3>
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Dietas ({dietRate}€/ud)
-                  </label>
-                  <input
-                    type="number"
-                    value={diets}
-                    onChange={(e) => setDiets(Number(e.target.value))}
-                    className="mt-1 w-full px-3 py-2 border rounded-lg"
-                    min="0"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Noches Hotel ({hotelRate}€/noche)
-                  </label>
-                  <input
-                    type="number"
-                    value={hotelNights}
-                    onChange={(e) => setHotelNights(Number(e.target.value))}
-                    className="mt-1 w-full px-3 py-2 border rounded-lg"
-                    min="0"
-                  />
-                </div>
+            {/* Right info */}
+            <div className="col-span-3 space-y-1.5 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-gray-500">Language:</span>
+                <select className="border rounded px-1 py-0.5 text-sm bg-blue-50" defaultValue={selectedOffer?.language || 'Español'}>
+                  <option>Español</option>
+                  <option>Portugués</option>
+                </select>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Viaje (€)</label>
-                  <input
-                    type="number"
-                    value={trip}
-                    onChange={(e) => setTrip(Number(e.target.value))}
-                    className="mt-1 w-full px-3 py-2 border rounded-lg"
-                    min="0"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Horas Viaje</label>
-                  <input
-                    type="number"
-                    value={tripHours}
-                    onChange={(e) => setTripHours(Number(e.target.value))}
-                    className="mt-1 w-full px-3 py-2 border rounded-lg"
-                    min="0"
-                    step="0.5"
-                  />
-                </div>
+              <div className="flex items-center gap-2">
+                <span className="text-gray-500">Inspection frequency:</span>
+                <select className="border rounded px-1 py-0.5 text-sm bg-blue-50" defaultValue={selectedOffer?.inspection_frequency || 'Anual'}>
+                  <option>Anual</option>
+                  <option>Semestral</option>
+                  <option>Bienal</option>
+                </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Horas Trabajo ({techRate}€/h)
-                </label>
-                <input
-                  type="number"
-                  value={workHours}
-                  onChange={(e) => setWorkHours(Number(e.target.value))}
-                  className="mt-1 w-full px-3 py-2 border rounded-lg"
-                  min="0"
-                  step="0.5"
-                />
+              <div className="flex items-center gap-2">
+                <span className="text-gray-500">Status:</span>
+                <select className="border rounded px-1 py-0.5 text-sm bg-blue-50" defaultValue={selectedOffer?.status || 'Pending response'}>
+                  <option>Draft</option>
+                  <option>Pending response</option>
+                  <option>Finished</option>
+                  <option>Cancelled</option>
+                  <option>Rejected</option>
+                </select>
               </div>
-              <div className="border-t pt-3">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={basicKit}
-                    onChange={(e) => setBasicKit(e.target.checked)}
-                    className="rounded"
-                  />
-                  <span className="text-sm font-medium text-gray-700">Kit Básico</span>
-                </label>
-                {basicKit && (
-                  <div className="grid grid-cols-2 gap-3 mt-2">
-                    <div>
-                      <label className="block text-sm text-gray-600">Horas Kit</label>
-                      <input
-                        type="number"
-                        value={basicKitHours}
-                        onChange={(e) => setBasicKitHours(Number(e.target.value))}
-                        className="mt-1 w-full px-3 py-2 border rounded-lg"
-                        min="0"
-                        step="0.5"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm text-gray-600">Precio Kit (€)</label>
-                      <input
-                        type="number"
-                        value={basicKitPrice}
-                        onChange={(e) => setBasicKitPrice(Number(e.target.value))}
-                        className="mt-1 w-full px-3 py-2 border rounded-lg"
-                        min="0"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Descuento (€)</label>
-                <input
-                  type="number"
-                  value={discount}
-                  onChange={(e) => setDiscount(Number(e.target.value))}
-                  className="mt-1 w-full px-3 py-2 border rounded-lg"
-                  min="0"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Comentarios</label>
-                <textarea
-                  value={generalComments}
-                  onChange={(e) => setGeneralComments(e.target.value)}
-                  className="mt-1 w-full px-3 py-2 border rounded-lg"
-                  rows={2}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Summary */}
-          <div className="bg-white rounded-lg shadow p-4">
-            <h3 className="font-semibold text-gray-900 mb-3">Resumen</h3>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Módulos ({selectedModules.length})</span>
-                <span className="font-medium">{modulesTotal.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Dietas</span>
-                <span className="font-medium">{dietCost.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Hotel</span>
-                <span className="font-medium">{hotelCost.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Viaje</span>
-                <span className="font-medium">{travelCost.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Trabajo</span>
-                <span className="font-medium">{workCost.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
-              </div>
-              {basicKit && (
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Kit Básico</span>
-                  <span className="font-medium">{basicKitCost.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
-                </div>
-              )}
-              {discount > 0 && (
-                <div className="flex justify-between text-red-600">
-                  <span>Descuento</span>
-                  <span className="font-medium">-{discount.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
-                </div>
-              )}
-              <div className="border-t pt-2 flex justify-between text-base font-bold">
-                <span>TOTAL</span>
-                <span className="text-blue-600">{totalEnd.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
-              </div>
-              <div className="flex justify-between text-xs text-gray-500">
-                <span>Horas totales</span>
-                <span>{totalHours.toFixed(1)}h</span>
+              <div className="flex items-center gap-2">
+                <span className="text-gray-500">Responsible offer:</span>
+                <select className="border rounded px-1 py-0.5 text-sm bg-blue-50" defaultValue={selectedOffer?.responsible_person || ''}>
+                  <option value="">-</option>
+                  <option>Xevi Mira</option>
+                  <option>David</option>
+                </select>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Right: Equipment & Modules */}
-        <div className="xl:col-span-2 space-y-6">
-          {/* Equipment Selector */}
-          <div className="bg-white rounded-lg shadow p-4">
-            <h3 className="font-semibold text-gray-900 mb-3">Seleccionar Equipo</h3>
-            <select
-              value={selectedEquipment}
-              onChange={(e) => setSelectedEquipment(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg"
-            >
-              <option value="">-- Selecciona un equipo --</option>
-              {[...new Set(equipmentList.map((e) => e.equipment))].map((eq) => (
-                <option key={eq} value={eq}>
-                  {eq} ({equipmentList.filter((e) => e.equipment === eq).length} módulos)
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Modules */}
-          {selectedEquipment && (
-            <div className="bg-white rounded-lg shadow">
-              <div className="p-4 border-b">
-                <h3 className="font-semibold text-gray-900">
-                  Módulos disponibles ({modules.length})
-                </h3>
-                <p className="text-sm text-gray-500">Selecciona los módulos a incluir en la oferta</p>
-              </div>
-              <div className="divide-y">
-                {modules.length === 0 ? (
-                  <div className="p-8 text-center text-gray-500">
-                    No se encontraron módulos para este equipo
+        {/* Main content: 3 columns */}
+        <div className="grid grid-cols-12 gap-3 flex-1" style={{ minHeight: '400px' }}>
+          {/* Left: Equipment Lists */}
+          <div className="col-span-2 space-y-3">
+            {/* No Selected */}
+            <div className="bg-white rounded shadow p-2">
+              <div className="text-xs font-bold text-gray-500 uppercase mb-1">No selected</div>
+              <div className="border rounded h-32 overflow-y-auto bg-gray-50">
+                {availableEquipment.length === 0 ? (
+                  <div className="p-2 text-xs text-gray-400">Vacío</div>
+                ) : availableEquipment.map(eq => (
+                  <div
+                    key={eq}
+                    onClick={() => toggleEquipment(eq)}
+                    className="px-2 py-1 text-xs hover:bg-blue-100 cursor-pointer border-b last:border-0"
+                  >
+                    {eq}
                   </div>
-                ) : (
-                  modules.map((mod) => {
-                    const selected = selectedModules.find((m) => m.module.id === mod.id);
-                    return (
-                      <div
-                        key={mod.id}
-                        className={`p-4 flex items-center gap-4 cursor-pointer hover:bg-gray-50 transition ${
-                          selected ? 'bg-blue-50' : ''
-                        }`}
-                        onClick={() => toggleModule(mod)}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={!!selected}
-                          onChange={() => toggleModule(mod)}
-                          className="rounded"
-                        />
-                        <div className="flex-1">
-                          <div className="font-medium text-gray-900">{mod.component_name}</div>
-                          <div className="text-sm text-gray-500">{mod.component_description}</div>
-                        </div>
-                        {selected && (
-                          <div className="flex gap-3" onClick={(e) => e.stopPropagation()}>
-                            <div>
-                              <label className="text-xs text-gray-500">Importe (€)</label>
-                              <input
-                                type="number"
-                                value={selected.importAmount}
-                                onChange={(e) => updateModuleImport(mod.id, Number(e.target.value))}
-                                className="w-24 px-2 py-1 border rounded text-sm"
-                                min="0"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-xs text-gray-500">Horas</label>
-                              <input
-                                type="number"
-                                value={selected.workload}
-                                onChange={(e) => updateModuleWorkload(mod.id, Number(e.target.value))}
-                                className="w-20 px-2 py-1 border rounded text-sm"
-                                min="0"
-                                step="0.5"
-                              />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
+                ))}
               </div>
             </div>
-          )}
+            {/* Selected */}
+            <div className="bg-white rounded shadow p-2">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-bold text-gray-500 uppercase">Selected</span>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setSelectedEquipment(clientEquipmentList.map(ce => ce.equipment).filter((v, i, a) => a.indexOf(v) === i))}
+                    className="text-[10px] text-blue-600 hover:underline"
+                  >
+                    All
+                  </button>
+                  <button
+                    onClick={() => setSelectedEquipment([])}
+                    className="text-[10px] text-red-600 hover:underline"
+                  >
+                    None
+                  </button>
+                </div>
+              </div>
+              <div className="border rounded h-32 overflow-y-auto bg-blue-50">
+                {selectedEquipment.length === 0 ? (
+                  <div className="p-2 text-xs text-gray-400">Ninguno</div>
+                ) : selectedEquipment.map(eq => (
+                  <div
+                    key={eq}
+                    onClick={() => toggleEquipment(eq)}
+                    className="px-2 py-1 text-xs cursor-pointer border-b last:border-0 font-medium hover:bg-red-100 bg-blue-200"
+                  >
+                    {eq}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
 
-          {/* Selected Modules Summary */}
-          {selectedModules.length > 0 && (
-            <div className="bg-white rounded-lg shadow p-4">
-              <h3 className="font-semibold text-gray-900 mb-3">
-                Módulos Seleccionados ({selectedModules.length})
-              </h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50">
+          {/* Center: Modules Table */}
+          <div className="col-span-6">
+            <div className="bg-white rounded shadow h-full flex flex-col">
+              <div className="overflow-auto flex-1">
+                <table className="w-full text-xs">
+                  <thead className="bg-gray-700 text-white sticky top-0">
                     <tr>
-                      <th className="px-3 py-2 text-left font-medium text-gray-600">Módulo</th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-600">Descripción</th>
-                      <th className="px-3 py-2 text-right font-medium text-gray-600">Importe</th>
-                      <th className="px-3 py-2 text-right font-medium text-gray-600">Horas</th>
-                      <th className="px-3 py-2 text-center font-medium text-gray-600"></th>
+                      <th className="px-2 py-2 text-left w-10">Pos</th>
+                      <th className="px-2 py-2 text-left">Equipo</th>
+                      <th className="px-2 py-2 text-left">Módulo</th>
+                      <th className="px-2 py-2 text-right w-24">Importe</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y">
-                    {selectedModules.map((m) => (
-                      <tr key={m.module.id}>
-                        <td className="px-3 py-2 font-medium">{m.module.component_name}</td>
-                        <td className="px-3 py-2 text-gray-600">{m.module.component_description}</td>
-                        <td className="px-3 py-2 text-right">
-                          {m.importAmount.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
-                        </td>
-                        <td className="px-3 py-2 text-right">{m.workload}h</td>
-                        <td className="px-3 py-2 text-center">
-                          <button
-                            onClick={() => toggleModule(m.module)}
-                            className="text-red-500 hover:text-red-700"
-                          >
-                            ×
-                          </button>
-                        </td>
+                  <tbody>
+                    {moduleRows.length === 0 ? (
+                      <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-400">Selecciona equipos en la lista izquierda</td></tr>
+                    ) : moduleRows.map(row => (
+                      <tr key={row.pos} style={{ backgroundColor: colorMap[row.equipment] || '#fff' }} className="border-b">
+                        <td className="px-2 py-1.5 font-medium">{row.pos}</td>
+                        <td className="px-2 py-1.5 font-semibold">{row.equipment}</td>
+                        <td className="px-2 py-1.5">{row.module}</td>
+                        <td className="px-2 py-1.5 text-right font-mono">{row.importAmount.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</td>
                       </tr>
                     ))}
                   </tbody>
-                  <tfoot className="bg-gray-50 font-medium">
-                    <tr>
-                      <td colSpan={2} className="px-3 py-2">Total</td>
-                      <td className="px-3 py-2 text-right">
-                        {modulesTotal.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
-                      </td>
-                      <td className="px-3 py-2 text-right">{modulesWorkload.toFixed(1)}h</td>
-                      <td></td>
-                    </tr>
-                  </tfoot>
                 </table>
               </div>
             </div>
-          )}
+          </div>
+
+          {/* Right: Cost Breakdown */}
+          <div className="col-span-4">
+            <div className="bg-white rounded shadow p-3 text-xs space-y-1">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Trip (Km):</span>
+                <span className="font-mono">{calc.tripCost.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Diets:</span>
+                <span className="font-mono">{calc.diets.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Hotels:</span>
+                <span className="font-mono">{calc.hotelNights.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Trip hours:</span>
+                <span className="font-mono">{calc.tripHours.toFixed(1)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Audit / Work hours:</span>
+                <span className="font-mono">{(calc.workHours + calc.bkHours).toFixed(1)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Hours report:</span>
+                <span className="font-mono">{calc.reportHours.toFixed(1)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Hours Basic Kit:</span>
+                <span className="font-mono">{calc.bkHours.toFixed(1)}</span>
+              </div>
+              <div className="flex justify-between border-t pt-1 font-bold">
+                <span>TOTAL HOURS:</span>
+                <span className="font-mono">{calc.totalHours.toFixed(1)}</span>
+              </div>
+              <div className="flex justify-between text-red-600 font-bold">
+                <span>TOTAL GUARDIAN H.:</span>
+                <span className="font-mono">{calc.totalHours.toFixed(1)}</span>
+              </div>
+              <div className="flex justify-between text-orange-600 font-bold">
+                <span>TOTAL CAMPAIGN H.:</span>
+                <span className="font-mono">0,00</span>
+              </div>
+              <div className="flex justify-between text-blue-600 font-bold">
+                <span>TOTAL OFF-GUARDIAN H.:</span>
+                <span className="font-mono">0,00</span>
+              </div>
+              <div className="flex justify-between border-t pt-1 font-bold">
+                <span>HOURS IMPORT:</span>
+                <span className="font-mono">{calc.hoursImport.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>
+              </div>
+              <div className="flex justify-between font-bold">
+                <span>EXPENSES IMPORT:</span>
+                <span className="font-mono">{calc.expensesImport.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>
+              </div>
+            </div>
+          </div>
         </div>
+
+        {/* Bottom row: Comments + Totals */}
+        <div className="grid grid-cols-12 gap-3">
+          {/* Comments */}
+          <div className="col-span-8">
+            <div className="bg-white rounded shadow p-3">
+              <div className="text-xs font-bold text-gray-500 uppercase mb-1">Comments</div>
+              <textarea
+                className="w-full border rounded p-2 text-sm h-16 resize-none"
+                placeholder="Notas de la oferta..."
+                defaultValue={selectedOffer?.general_comments || ''}
+              />
+            </div>
+          </div>
+          {/* Totals */}
+          <div className="col-span-4">
+            <div className="bg-white rounded shadow p-3 text-sm space-y-2">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Total:</span>
+                <span className="font-mono font-bold">{calc.total.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Spare parts kit:</span>
+                <span className="font-mono">{calc.bkPrice.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Discount:</span>
+                <span className="font-mono text-red-600">{calc.discount.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>
+              </div>
+              <div className="flex justify-between border-t pt-2 text-lg font-bold">
+                <span>Total amount:</span>
+                <span className="font-mono text-blue-700">{calc.totalEnd.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Offers list */}
+        {offers.length > 0 && (
+          <div className="bg-white rounded shadow p-3">
+            <div className="text-xs font-bold text-gray-500 uppercase mb-2">Ofertas del cliente ({offers.length})</div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="px-2 py-1.5 text-left">ID</th>
+                    <th className="px-2 py-1.5 text-left">Fecha</th>
+                    <th className="px-2 py-1.5 text-left">Idioma</th>
+                    <th className="px-2 py-1.5 text-left">Estado</th>
+                    <th className="px-2 py-1.5 text-left">Frecuencia</th>
+                    <th className="px-2 py-1.5 text-right">Total</th>
+                    <th className="px-2 py-1.5 text-right">Total End</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {offers.map(o => (
+                    <tr
+                      key={o.id_guardian_offer}
+                      onClick={() => {
+                        setSelectedOffer(o);
+                        const equipForOffer = clientEquipmentList
+                          .filter(ce => ce.id_guardian_offer === o.id_guardian_offer)
+                          .map(ce => ce.equipment)
+                          .filter((v, i, a) => a.indexOf(v) === i);
+                        setSelectedEquipment(equipForOffer);
+                      }}
+                      className={`cursor-pointer border-b ${selectedOffer?.id_guardian_offer === o.id_guardian_offer ? 'bg-blue-100' : 'hover:bg-gray-50'}`}
+                    >
+                      <td className="px-2 py-1.5 font-mono font-bold text-blue-600">{o.id_guardian_offer}</td>
+                      <td className="px-2 py-1.5">{o.date_guardian || '-'}</td>
+                      <td className="px-2 py-1.5">{o.language || '-'}</td>
+                      <td className="px-2 py-1.5">
+                        <span className={`px-1.5 py-0.5 rounded text-xs ${
+                          o.status === 'Finished' ? 'bg-green-100 text-green-700' :
+                          o.status === 'Cancelled' ? 'bg-red-100 text-red-700' :
+                          o.status === 'Rejected' ? 'bg-red-100 text-red-700' :
+                          'bg-gray-100 text-gray-700'
+                        }`}>{o.status || 'Draft'}</span>
+                      </td>
+                      <td className="px-2 py-1.5">{o.inspection_frequency || '-'}</td>
+                      <td className="px-2 py-1.5 text-right font-mono">{(o.total || 0).toLocaleString('es-ES', { minimumFractionDigits: 2 })}</td>
+                      <td className="px-2 py-1.5 text-right font-mono font-bold">{(o.total_end || 0).toLocaleString('es-ES', { minimumFractionDigits: 2 })}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
+
+      {loading && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg px-6 py-4 shadow-lg text-sm font-medium">Cargando datos...</div>
+        </div>
+      )}
     </div>
   );
 }

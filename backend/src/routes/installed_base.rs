@@ -65,6 +65,7 @@ pub async fn search_installed_base(
 pub struct InstalledBaseStats {
     pub total_equipments: i64,
     pub total_accounts: i64,
+    pub total_modules: i64,
     pub countries: Vec<CountryCount>,
     pub machine_types: Vec<MachineTypeCount>,
 }
@@ -95,6 +96,12 @@ pub async fn get_installed_base_stats(
             .await
             .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
+    let total_modules: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM clients_equipment")
+            .fetch_one(&db)
+            .await
+            .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
     let countries = sqlx::query_as::<_, (String, i64)>(
         "SELECT physical_country, COUNT(*) as count FROM installed_base GROUP BY physical_country ORDER BY count DESC",
     )
@@ -118,6 +125,7 @@ pub async fn get_installed_base_stats(
     Ok(Json(InstalledBaseStats {
         total_equipments: total_equipments.0,
         total_accounts: total_accounts.0,
+        total_modules: total_modules.0,
         countries,
         machine_types,
     }))

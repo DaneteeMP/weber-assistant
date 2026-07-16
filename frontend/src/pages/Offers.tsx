@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getOffers, deleteOffer } from '../services/api';
+import { getOffers } from '../services/api';
 import type { Offer } from '../types';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -32,16 +32,6 @@ export default function Offers() {
     setLoading(false);
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm('¿Eliminar esta oferta?')) return;
-    try {
-      await deleteOffer(id);
-      setOffers(offers.filter((o) => o.id !== id));
-    } catch (err) {
-      console.error('Error deleting offer:', err);
-    }
-  }
-
   const filtered = offers.filter(
     (o) =>
       o.id_guardian_offer.toLowerCase().includes(search.toLowerCase()) ||
@@ -58,7 +48,8 @@ export default function Offers() {
         </div>
         <button
           onClick={() => navigate('/clients')}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+          className="px-4 py-2 text-white rounded-lg hover:opacity-90 transition"
+          style={{ backgroundColor: '#1D4F91' }}
         >
           + Nueva Oferta
         </button>
@@ -71,7 +62,7 @@ export default function Offers() {
             placeholder="Buscar por ID, cliente o nombre..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1D4F91]"
           />
         </div>
         <div className="overflow-x-auto">
@@ -84,17 +75,17 @@ export default function Offers() {
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Técnico</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Estado</th>
                 <th className="px-4 py-3 text-right font-medium text-gray-600">Total</th>
-                <th className="px-4 py-3 text-center font-medium text-gray-600">Acciones</th>
+                <th className="px-4 py-3 text-right font-medium text-gray-600">Total End</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">Cargando...</td>
+                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">Cargando...</td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
                     {offers.length === 0
                       ? 'No hay ofertas creadas aún'
                       : 'No se encontraron ofertas con esos criterios'}
@@ -102,8 +93,12 @@ export default function Offers() {
                 </tr>
               ) : (
                 filtered.map((offer) => (
-                  <tr key={offer.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-blue-600">{offer.id_guardian_offer}</td>
+                  <tr
+                    key={offer.id}
+                    onClick={() => navigate(`/offers/new?customer_id=${offer.customer_id}&offer=${offer.id_guardian_offer}`)}
+                    className="hover:bg-gray-50 cursor-pointer"
+                  >
+                    <td className="px-4 py-3 font-medium" style={{ color: '#1D4F91' }}>{offer.id_guardian_offer}</td>
                     <td className="px-4 py-3 text-gray-900">{offer.customer_id}</td>
                     <td className="px-4 py-3 text-gray-600">{offer.account_name || '-'}</td>
                     <td className="px-4 py-3 text-gray-600">{offer.responsible_person || '-'}</td>
@@ -114,14 +109,6 @@ export default function Offers() {
                     </td>
                     <td className="px-4 py-3 text-right font-medium">
                       {(offer.total_end || 0).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <button
-                        onClick={() => handleDelete(offer.id)}
-                        className="text-red-500 hover:text-red-700 text-sm"
-                      >
-                        Eliminar
-                      </button>
                     </td>
                   </tr>
                 ))

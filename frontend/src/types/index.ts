@@ -20,9 +20,11 @@ export interface UpdateItem {
 }
 
 export interface DashboardStats {
-  total_items: number;
-  active_items: number;
-  recent_items: Item[];
+  total_customers: number;
+  total_equipment: number;
+  total_modules: number;
+  total_offers: number;
+  countries: { country: string; count: number }[];
 }
 
 export interface InstalledBase {
@@ -43,6 +45,7 @@ export interface InstalledBase {
 export interface InstalledBaseStats {
   total_equipments: number;
   total_accounts: number;
+  total_modules: number;
   countries: { country: string; count: number }[];
   machine_types: { machine_type: string; count: number }[];
 }
@@ -61,8 +64,77 @@ export interface ClientEquipment {
 }
 
 export interface ClientSummary {
+  id: string;
   customer_id: string;
+  account_name: string;
+  account_address: string | null;
+  account_city: string | null;
+  account_province: string | null;
+  account_country: string | null;
+  sector: string | null;
+  subsidiary: string | null;
   equipment_count: number;
+}
+
+export interface Equipment {
+  id: string;
+  customer_id: string;
+  configuration: string | null;
+  description: string | null;
+  material: string | null;
+  model: string | null;
+  serial: string | null;
+  year: number | null;
+  old_id: number | null;
+  created_at: string;
+}
+
+export interface Distance {
+  id: string;
+  km: number | null;
+  province: string;
+  trip_hours: number | null;
+  old_id: number | null;
+  created_at: string;
+}
+
+export interface GuardianSummary {
+  id: string;
+  id_guardian_offer: string;
+  date_guardian: string | null;
+  customer_id: string;
+  account_name: string | null;
+  equipment: string | null;
+  inspection_frequency: string | null;
+  basic_kit: boolean | null;
+  total: number | null;
+  discount: number | null;
+  total_end: number | null;
+  basic_kit_price: number | null;
+  acceptance_date: string | null;
+  audit_amount: number | null;
+  audit_comments: string | null;
+  audit_date: string | null;
+  audit_number_invoice: string | null;
+  audit_report: string | null;
+  maintenance_checklist_number: string | null;
+  maintenance_comments: string | null;
+  maintenance_date: string | null;
+  maintenance_sat_amount: number | null;
+  maintenance_service_invoice: string | null;
+  maintenance_spare_parts_offer: string | null;
+  maintenance_status: string | null;
+  maintenance_sat_date: string | null;
+  spare_parts_date: string | null;
+  spare_parts_material_amount: number | null;
+  spare_parts_material_invoice: string | null;
+  summary_notes: string | null;
+  summary_other1: number | null;
+  summary_other2: number | null;
+  summary_total_euros: number | null;
+  status: string | null;
+  bill_date: string | null;
+  created_at: string;
 }
 
 export interface Module {
@@ -166,4 +238,19 @@ export interface CreateOffer {
     workload?: number;
     row_guardian?: number;
   }[];
+}
+
+export interface BasicKit {
+  id: string;
+  model: string;
+  spare_parts: number | null;
+  workload_basic_kit: number | null;
+  created_at: string;
+}
+
+export interface Workload {
+  id: string;
+  component_description: string;
+  workload: number | null;
+  created_at: string;
 }

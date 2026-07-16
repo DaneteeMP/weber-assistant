@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import * as XLSX from 'xlsx';
+import { resetData } from '../services/api';
 
 interface ImportResult {
   table: string;
@@ -13,29 +14,65 @@ interface ParsedData {
 }
 
 const TABLE_CONFIGS = {
+  customers: {
+    label: 'Clientes (TblCustomers)',
+    description: 'Importar datos de clientes',
+    requiredColumns: ['CustomerID', 'Account name'],
+    exampleColumns: ['CustomerID', 'Account name', 'Account address', 'Account city', 'Account Country', 'Sector', 'Type', 'SalesMan'],
+  },
   clients_equipment: {
-    label: 'Clientes/Equipos',
-    description: 'Importar datos de clientes y sus equipos',
+    label: 'Equipos por Oferta (TblSubGuardianOffers)',
+    description: 'Módulos incluidos en cada oferta',
     requiredColumns: ['CustomerID', 'Description', 'Equipment'],
     exampleColumns: ['CustomerID', 'Description', 'Equipment', 'Import', 'WorkLoad'],
   },
+  equipment: {
+    label: 'Máquinas (TblEquipment)',
+    description: 'Equipos físicos instalados en clientes',
+    requiredColumns: ['CustomerID', 'Configuration'],
+    exampleColumns: ['CustomerID', 'Configuration', 'Description', 'Model', 'Serial', 'Year'],
+  },
   modules: {
-    label: 'Módulos',
+    label: 'Módulos (TblModules)',
     description: 'Importar definiciones de módulos/componentes',
     requiredColumns: ['Component Name'],
     exampleColumns: ['Component Description', 'Component Name', 'Description'],
   },
   prices: {
-    label: 'Precios',
+    label: 'Precios (TblPrices)',
     description: 'Importar tarifas (dietas, hotel, horas, Km)',
     requiredColumns: ['FullDietRate', 'HotelRate', 'HourlyRate Technician'],
     exampleColumns: ['FullDietRate', 'HalfDietRate', 'HotelRate', 'HourlyRate Specialist', 'HourlyRate Technician', 'KmRate', 'YearPrice'],
   },
+  guardian_summary: {
+    label: 'Resumen Guardian (TblGuardianSummary)',
+    description: 'Resumen de ofertas con estado, costes y mantenimiento',
+    requiredColumns: ['IdGuardianOffer', 'CustomerID'],
+    exampleColumns: ['IdGuardianOffer', 'CustomerID', 'Account name', 'Equipment', 'DateGuardian', 'Status', 'Total', 'TotalEnd', 'Discount'],
+  },
+  distances: {
+    label: 'Distancias (TblDistances)',
+    description: 'Km y horas de viaje por provincia',
+    requiredColumns: ['Province', 'Km', 'TripHours'],
+    exampleColumns: ['Province', 'Km', 'TripHours'],
+  },
   offers: {
-    label: 'Ofertas',
+    label: 'Ofertas (TblGuardianOffers)',
     description: 'Importar ofertas existentes de Guardian',
     requiredColumns: ['IdGuardianOffer', 'CustomerID'],
     exampleColumns: ['IdGuardianOffer', 'CustomerID', 'Account name', 'DateGuardian', 'Status', 'Diets', 'HotelNights', 'Trip', 'TripHours', 'WorkHours', 'Total', 'TotalEnd'],
+  },
+  basic_kit: {
+    label: 'Kit Básico (TblBasicKit)',
+    description: 'Precio y horas del kit básico por modelo',
+    requiredColumns: ['Model'],
+    exampleColumns: ['Model', 'SpareParts', 'WorkloadBasicKit'],
+  },
+  workload: {
+    label: 'Carga de Trabajo (TblWorkLoad)',
+    description: 'Horas de trabajo por componente',
+    requiredColumns: ['Component Description'],
+    exampleColumns: ['Component Description', 'Workload'],
   },
 } as const;
 
@@ -47,6 +84,21 @@ export default function ImportData() {
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
+  const [resetResult, setResetResult] = useState<string | null>(null);
+
+  async function handleReset() {
+    if (!confirm('¿Estás seguro? Esto borrará TODOS los datos de la base de datos.')) return;
+    setResetting(true);
+    setResetResult(null);
+    try {
+      const res = await resetData();
+      setResetResult(`Datos reiniciados. Tablas limpiadas: ${res.tables_reset.join(', ')}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al reiniciar');
+    }
+    setResetting(false);
+  }
 
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -123,10 +175,25 @@ export default function ImportData() {
 
   return (
     <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Importar Datos</h1>
-        <p className="text-gray-500 mt-1">Cargar datos desde archivos Excel (.xlsx) a la base de datos</p>
+      <div className="mb-6 flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Importar Datos</h1>
+          <p className="text-gray-500 mt-1">Cargar datos desde archivos Excel (.xlsx) a la base de datos</p>
+        </div>
+        <button
+          onClick={handleReset}
+          disabled={resetting}
+          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 text-sm"
+        >
+          {resetting ? 'Reiniciando...' : 'Reiniciar Datos'}
+        </button>
       </div>
+
+      {resetResult && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+          <p className="text-sm text-green-700">{resetResult}</p>
+        </div>
+      )}
 
       {/* Step 1: Select Table */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">
@@ -184,7 +251,8 @@ export default function ImportData() {
             <button
               onClick={handleImport}
               disabled={importing}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+              className="px-4 py-2 text-white rounded-lg hover:opacity-90 transition disabled:opacity-50"
+              style={{ backgroundColor: '#1D4F91' }}
             >
               {importing ? 'Importando...' : `Importar ${parsedData.rows.length} filas`}
             </button>

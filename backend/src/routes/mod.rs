@@ -1,5 +1,9 @@
+pub mod basic_kit;
 pub mod clients;
 pub mod dashboard;
+pub mod distances;
+pub mod equipment;
+pub mod guardian_summary;
 pub mod health;
 pub mod import_data;
 pub mod installed_base;
@@ -7,3 +11,4 @@ pub mod items;
 pub mod modules;
 pub mod offers;
 pub mod prices;
+pub mod workload;
