@@ -43,15 +43,15 @@ export default function Offers() {
     <div className="p-6">
       <div className="mb-6 flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Ofertas</h1>
-          <p className="text-gray-500 mt-1">{offers.length} oferta{offers.length !== 1 ? 's' : ''} en total</p>
+          <h1 className="text-2xl font-bold text-gray-900">Offers</h1>
+          <p className="text-gray-500 mt-1">{offers.length} offer{offers.length !== 1 ? 's' : ''} total</p>
         </div>
         <button
           onClick={() => navigate('/clients')}
           className="px-4 py-2 text-white rounded-lg hover:opacity-90 transition"
           style={{ backgroundColor: '#1D4F91' }}
         >
-          + Nueva Oferta
+          + New Offer
         </button>
       </div>
 
@@ -59,7 +59,7 @@ export default function Offers() {
         <div className="p-4 border-b">
           <input
             type="text"
-            placeholder="Buscar por ID, cliente o nombre..."
+            placeholder="Search by ID, client or name..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1D4F91]"
@@ -69,11 +69,11 @@ export default function Offers() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">ID Oferta</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Cliente</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Nombre</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Técnico</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Estado</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">Offer ID</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">Client</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">Name</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">Technician</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">Status</th>
                 <th className="px-4 py-3 text-right font-medium text-gray-600">Total</th>
                 <th className="px-4 py-3 text-right font-medium text-gray-600">Total End</th>
               </tr>
@@ -81,14 +81,14 @@ export default function Offers() {
             <tbody className="divide-y">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">Cargando...</td>
+                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">Loading...</td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
                     {offers.length === 0
-                      ? 'No hay ofertas creadas aún'
-                      : 'No se encontraron ofertas con esos criterios'}
+                      ? 'No offers created yet'
+                      : 'No offers found matching those criteria'}
                   </td>
                 </tr>
               ) : (
@@ -108,7 +108,7 @@ export default function Offers() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right font-medium">
-                      {(offer.total_end || 0).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+                      {(offer.total_end || 0).toLocaleString('en-GB', { style: 'currency', currency: 'EUR' })}
                     </td>
                   </tr>
                 ))

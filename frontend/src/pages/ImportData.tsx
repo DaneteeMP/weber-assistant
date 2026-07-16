@@ -15,62 +15,62 @@ interface ParsedData {
 
 const TABLE_CONFIGS = {
   customers: {
-    label: 'Clientes (TblCustomers)',
-    description: 'Importar datos de clientes',
+    label: 'Clients (TblCustomers)',
+    description: 'Import client data',
     requiredColumns: ['CustomerID', 'Account name'],
     exampleColumns: ['CustomerID', 'Account name', 'Account address', 'Account city', 'Account Country', 'Sector', 'Type', 'SalesMan'],
   },
   clients_equipment: {
-    label: 'Equipos por Oferta (TblSubGuardianOffers)',
-    description: 'Módulos incluidos en cada oferta',
+    label: 'Equipment per Offer (TblSubGuardianOffers)',
+    description: 'Modules included in each offer',
     requiredColumns: ['CustomerID', 'Description', 'Equipment'],
     exampleColumns: ['CustomerID', 'Description', 'Equipment', 'Import', 'WorkLoad'],
   },
   equipment: {
-    label: 'Máquinas (TblEquipment)',
-    description: 'Equipos físicos instalados en clientes',
+    label: 'Machines (TblEquipment)',
+    description: 'Physical equipment installed at clients',
     requiredColumns: ['CustomerID', 'Configuration'],
     exampleColumns: ['CustomerID', 'Configuration', 'Description', 'Model', 'Serial', 'Year'],
   },
   modules: {
-    label: 'Módulos (TblModules)',
-    description: 'Importar definiciones de módulos/componentes',
+    label: 'Modules (TblModules)',
+    description: 'Module/component definitions',
     requiredColumns: ['Component Name'],
     exampleColumns: ['Component Description', 'Component Name', 'Description'],
   },
   prices: {
-    label: 'Precios (TblPrices)',
-    description: 'Importar tarifas (dietas, hotel, horas, Km)',
+    label: 'Prices (TblPrices)',
+    description: 'Rates (diets, hotel, hours, km)',
     requiredColumns: ['FullDietRate', 'HotelRate', 'HourlyRate Technician'],
     exampleColumns: ['FullDietRate', 'HalfDietRate', 'HotelRate', 'HourlyRate Specialist', 'HourlyRate Technician', 'KmRate', 'YearPrice'],
   },
   guardian_summary: {
-    label: 'Resumen Guardian (TblGuardianSummary)',
-    description: 'Resumen de ofertas con estado, costes y mantenimiento',
+    label: 'Guardian Summary (TblGuardianSummary)',
+    description: 'Offer summary with status, costs and maintenance',
     requiredColumns: ['IdGuardianOffer', 'CustomerID'],
     exampleColumns: ['IdGuardianOffer', 'CustomerID', 'Account name', 'Equipment', 'DateGuardian', 'Status', 'Total', 'TotalEnd', 'Discount'],
   },
   distances: {
-    label: 'Distancias (TblDistances)',
-    description: 'Km y horas de viaje por provincia',
+    label: 'Distances (TblDistances)',
+    description: 'Km and travel hours by province',
     requiredColumns: ['Province', 'Km', 'TripHours'],
     exampleColumns: ['Province', 'Km', 'TripHours'],
   },
   offers: {
-    label: 'Ofertas (TblGuardianOffers)',
-    description: 'Importar ofertas existentes de Guardian',
+    label: 'Offers (TblGuardianOffers)',
+    description: 'Import existing Guardian offers',
     requiredColumns: ['IdGuardianOffer', 'CustomerID'],
     exampleColumns: ['IdGuardianOffer', 'CustomerID', 'Account name', 'DateGuardian', 'Status', 'Diets', 'HotelNights', 'Trip', 'TripHours', 'WorkHours', 'Total', 'TotalEnd'],
   },
   basic_kit: {
-    label: 'Kit Básico (TblBasicKit)',
-    description: 'Precio y horas del kit básico por modelo',
+    label: 'Basic Kit (TblBasicKit)',
+    description: 'Basic kit price and hours by model',
     requiredColumns: ['Model'],
     exampleColumns: ['Model', 'SpareParts', 'WorkloadBasicKit'],
   },
   workload: {
-    label: 'Carga de Trabajo (TblWorkLoad)',
-    description: 'Horas de trabajo por componente',
+    label: 'Workload (TblWorkLoad)',
+    description: 'Work hours per component',
     requiredColumns: ['Component Description'],
     exampleColumns: ['Component Description', 'Workload'],
   },
@@ -88,14 +88,14 @@ export default function ImportData() {
   const [resetResult, setResetResult] = useState<string | null>(null);
 
   async function handleReset() {
-    if (!confirm('¿Estás seguro? Esto borrará TODOS los datos de la base de datos.')) return;
+    if (!confirm('Are you sure? This will DELETE ALL data from the database.')) return;
     setResetting(true);
     setResetResult(null);
     try {
       const res = await resetData();
-      setResetResult(`Datos reiniciados. Tablas limpiadas: ${res.tables_reset.join(', ')}`);
+      setResetResult(`Data reset. Tables cleared: ${res.tables_reset.join(', ')}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al reiniciar');
+      setError(err instanceof Error ? err.message : 'Error resetting data');
     }
     setResetting(false);
   }
@@ -122,14 +122,14 @@ export default function ImportData() {
         });
 
         if (jsonData.length === 0) {
-          setError('El archivo está vacío o no tiene datos válidos');
+          setError('The file is empty or has no valid data');
           return;
         }
 
         const headers = Object.keys(jsonData[0]);
         setParsedData({ headers, rows: jsonData });
       } catch {
-        setError('Error al leer el archivo. Asegúrate de que es un .xlsx válido');
+        setError('Error reading file. Make sure it is a valid .xlsx file');
       }
     };
     reader.readAsArrayBuffer(file);
@@ -154,13 +154,13 @@ export default function ImportData() {
 
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || 'Error al importar');
+        throw new Error(err.error || 'Import error');
       }
 
       const importResult: ImportResult = await res.json();
       setResult(importResult);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error desconocido');
+      setError(err instanceof Error ? err.message : 'Unknown error');
     }
     setImporting(false);
   }
@@ -177,15 +177,15 @@ export default function ImportData() {
     <div className="p-6">
       <div className="mb-6 flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Importar Datos</h1>
-          <p className="text-gray-500 mt-1">Cargar datos desde archivos Excel (.xlsx) a la base de datos</p>
+          <h1 className="text-2xl font-bold text-gray-900">Import Data</h1>
+          <p className="text-gray-500 mt-1">Load data from Excel files (.xlsx) into the database</p>
         </div>
         <button
           onClick={handleReset}
           disabled={resetting}
           className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 text-sm"
         >
-          {resetting ? 'Reiniciando...' : 'Reiniciar Datos'}
+          {resetting ? 'Resetting...' : 'Reset Data'}
         </button>
       </div>
 
@@ -197,7 +197,7 @@ export default function ImportData() {
 
       {/* Step 1: Select Table */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h3 className="font-semibold text-gray-900 mb-3">1. Seleccionar tabla destino</h3>
+        <h3 className="font-semibold text-gray-900 mb-3">1. Select target table</h3>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {(Object.entries(TABLE_CONFIGS) as [TableKey, typeof TABLE_CONFIGS[TableKey]][]).map(([key, cfg]) => (
             <button
@@ -219,14 +219,14 @@ export default function ImportData() {
       {/* Step 2: Upload File */}
       {selectedTable && config && (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h3 className="font-semibold text-gray-900 mb-3">2. Subir archivo Excel</h3>
+          <h3 className="font-semibold text-gray-900 mb-3">2. Upload Excel file</h3>
           <div className="mb-4">
-            <p className="text-sm text-gray-600 mb-2">Columnas requeridas: {config.requiredColumns.join(', ')}</p>
-            <p className="text-sm text-gray-500">Columnas esperadas: {config.exampleColumns.join(', ')}</p>
+            <p className="text-sm text-gray-600 mb-2">Required columns: {config.requiredColumns.join(', ')}</p>
+            <p className="text-sm text-gray-500">Expected columns: {config.exampleColumns.join(', ')}</p>
           </div>
           <div className="flex items-center gap-4">
             <label className="px-4 py-2 bg-gray-100 rounded-lg cursor-pointer hover:bg-gray-200 transition">
-              <span className="text-sm font-medium text-gray-700">Seleccionar archivo .xlsx</span>
+              <span className="text-sm font-medium text-gray-700">Select .xlsx file</span>
               <input
                 type="file"
                 accept=".xlsx,.xls,.csv"
@@ -236,7 +236,7 @@ export default function ImportData() {
             </label>
             {parsedData && (
               <span className="text-sm text-green-600 font-medium">
-                {parsedData.rows.length} filas detectadas
+                {parsedData.rows.length} rows detected
               </span>
             )}
           </div>
@@ -247,14 +247,14 @@ export default function ImportData() {
       {parsedData && (
         <div className="bg-white rounded-lg shadow mb-6">
           <div className="p-6 border-b flex justify-between items-center">
-            <h3 className="font-semibold text-gray-900">3. Vista previa ({parsedData.rows.length} filas)</h3>
+            <h3 className="font-semibold text-gray-900">3. Preview ({parsedData.rows.length} rows)</h3>
             <button
               onClick={handleImport}
               disabled={importing}
               className="px-4 py-2 text-white rounded-lg hover:opacity-90 transition disabled:opacity-50"
               style={{ backgroundColor: '#1D4F91' }}
             >
-              {importing ? 'Importando...' : `Importar ${parsedData.rows.length} filas`}
+              {importing ? 'Importing...' : `Import ${parsedData.rows.length} rows`}
             </button>
           </div>
           <div className="overflow-x-auto max-h-96">
@@ -284,7 +284,7 @@ export default function ImportData() {
             </table>
             {parsedData.rows.length > 50 && (
               <div className="p-3 text-center text-sm text-gray-500">
-                Mostrando 50 de {parsedData.rows.length} filas
+                Showing 50 of {parsedData.rows.length} rows
               </div>
             )}
           </div>
@@ -294,19 +294,19 @@ export default function ImportData() {
       {/* Result */}
       {result && (
         <div className={`rounded-lg shadow p-6 ${result.errors.length > 0 ? 'bg-yellow-50 border border-yellow-200' : 'bg-green-50 border border-green-200'}`}>
-          <h3 className="font-semibold text-gray-900 mb-2">Resultado de la importación</h3>
+          <h3 className="font-semibold text-gray-900 mb-2">Import Result</h3>
           <p className="text-sm">
-            <span className="font-medium">{result.inserted}</span> filas importadas en <span className="font-medium">{result.table}</span>
+            <span className="font-medium">{result.inserted}</span> rows imported into <span className="font-medium">{result.table}</span>
           </p>
           {result.errors.length > 0 && (
             <div className="mt-3">
-              <p className="text-sm font-medium text-yellow-800">{result.errors.length} errores:</p>
+              <p className="text-sm font-medium text-yellow-800">{result.errors.length} errors:</p>
               <ul className="mt-1 text-sm text-yellow-700 max-h-40 overflow-y-auto">
                 {result.errors.slice(0, 20).map((err, i) => (
                   <li key={i}>{err}</li>
                 ))}
                 {result.errors.length > 20 && (
-                  <li>... y {result.errors.length - 20} errores más</li>
+                  <li>... and {result.errors.length - 20} more errors</li>
                 )}
               </ul>
             </div>

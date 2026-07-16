@@ -4,6 +4,7 @@ import {
   getClients, getClientEquipment, getEquipmentByCustomer,
   getGuardianSummaryByCustomer, getDistances, getPrices, getOffersByCustomer, getBasicKit
 } from '../services/api';
+import { generateOfferPdf } from '../utils/generateOfferPdf';
 import type { ClientSummary, Equipment, ClientEquipment, Distance, Price, GuardianSummary, Offer, BasicKit } from '../types';
 
 export default function OfferBuilder() {
@@ -237,9 +238,15 @@ export default function OfferBuilder() {
     <div className="h-screen flex flex-col bg-gray-100">
       {/* Header */}
       <div className="text-white px-6 py-3 flex items-center justify-between shadow" style={{ background: 'linear-gradient(135deg, #1D4F91, #2563EB)' }}>
-        <h1 className="text-xl font-bold tracking-wide">OFERTA GUARDIAN</h1>
+        <h1 className="text-xl font-bold tracking-wide">GUARDIAN OFFER</h1>
         <div className="flex gap-2">
-          <button className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded text-sm font-medium transition">PRINT PDF</button>
+          <button
+            onClick={() => {
+              if (!selectedOffer || !customer) return;
+              generateOfferPdf(selectedOffer, customer, selectedEquipmentModules, calc);
+            }}
+            className="cursor-pointer px-3 py-1 bg-white/20 hover:bg-white/30 rounded text-sm font-medium transition"
+          >PRINT PDF</button>
           <button className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded text-sm font-medium transition">DELETE OFFER</button>
           <button className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded text-sm font-medium transition">CLOSE OFFER</button>
         </div>
@@ -270,7 +277,7 @@ export default function OfferBuilder() {
                   }}
                   className="w-full px-2 py-1.5 border rounded text-sm bg-blue-50"
                 >
-                  <option value="">Seleccionar cliente...</option>
+                  <option value="">Select client...</option>
                   {filteredClients.map(c => (
                     <option key={c.customer_id} value={c.customer_id}>
                       {c.customer_id}  {c.account_name}
@@ -296,7 +303,7 @@ export default function OfferBuilder() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-gray-500 w-28">Offer date:</span>
-                  <span>{selectedOffer?.date_guardian || new Date().toLocaleDateString('es-ES')}</span>
+                  <span>{selectedOffer?.date_guardian || new Date().toLocaleDateString('en-GB')}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-gray-500 w-28">Acceptance data:</span>
@@ -318,17 +325,17 @@ export default function OfferBuilder() {
             <div className="col-span-3 space-y-1.5 text-sm">
               <div className="flex items-center gap-2">
                 <span className="text-gray-500">Language:</span>
-                <select className="border rounded px-1 py-0.5 text-sm bg-blue-50" defaultValue={selectedOffer?.language || 'Español'}>
-                  <option>Español</option>
-                  <option>Portugués</option>
+                <select className="border rounded px-1 py-0.5 text-sm bg-blue-50" defaultValue={selectedOffer?.language || 'Spanish'}>
+                  <option>Spanish</option>
+                  <option>Portuguese</option>
                 </select>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-gray-500">Inspection frequency:</span>
-                <select className="border rounded px-1 py-0.5 text-sm bg-blue-50" defaultValue={selectedOffer?.inspection_frequency || 'Anual'}>
-                  <option>Anual</option>
-                  <option>Semestral</option>
-                  <option>Bienal</option>
+                <select className="border rounded px-1 py-0.5 text-sm bg-blue-50" defaultValue={selectedOffer?.inspection_frequency || 'Annual'}>
+                  <option>Annual</option>
+                  <option>Semi-annual</option>
+                  <option>Biennial</option>
                 </select>
               </div>
               <div className="flex items-center gap-2">
@@ -362,7 +369,7 @@ export default function OfferBuilder() {
               <div className="text-xs font-bold text-gray-500 uppercase mb-1">No selected</div>
               <div className="border rounded h-32 overflow-y-auto bg-gray-50">
                 {availableEquipment.length === 0 ? (
-                  <div className="p-2 text-xs text-gray-400">Vacío</div>
+                  <div className="p-2 text-xs text-gray-400">Empty</div>
                 ) : availableEquipment.map(eq => (
                   <div
                     key={eq}
@@ -395,7 +402,7 @@ export default function OfferBuilder() {
               </div>
               <div className="border rounded h-32 overflow-y-auto bg-blue-50">
                 {selectedEquipment.length === 0 ? (
-                  <div className="p-2 text-xs text-gray-400">Ninguno</div>
+                  <div className="p-2 text-xs text-gray-400">None</div>
                 ) : selectedEquipment.map(eq => (
                   <div
                     key={eq}
@@ -417,20 +424,20 @@ export default function OfferBuilder() {
                   <thead className="bg-gray-700 text-white sticky top-0">
                     <tr>
                       <th className="px-2 py-2 text-left w-10">Pos</th>
-                      <th className="px-2 py-2 text-left">Equipo</th>
-                      <th className="px-2 py-2 text-left">Módulo</th>
-                      <th className="px-2 py-2 text-right w-24">Importe</th>
+                      <th className="px-2 py-2 text-left">Equipment</th>
+                      <th className="px-2 py-2 text-left">Module</th>
+                      <th className="px-2 py-2 text-right w-24">Amount</th>
                     </tr>
                   </thead>
                   <tbody>
                     {moduleRows.length === 0 ? (
-                      <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-400">Selecciona equipos en la lista izquierda</td></tr>
+                      <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-400">Select equipment from the left list</td></tr>
                     ) : moduleRows.map(row => (
                       <tr key={row.pos} style={{ backgroundColor: colorMap[row.equipment] || '#fff' }} className="border-b">
                         <td className="px-2 py-1.5 font-medium">{row.pos}</td>
                         <td className="px-2 py-1.5 font-semibold">{row.equipment}</td>
                         <td className="px-2 py-1.5">{row.module}</td>
-                        <td className="px-2 py-1.5 text-right font-mono">{row.importAmount.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</td>
+                        <td className="px-2 py-1.5 text-right font-mono">{row.importAmount.toLocaleString('en-GB', { minimumFractionDigits: 2 })} €</td>
                       </tr>
                     ))}
                   </tbody>
@@ -444,15 +451,15 @@ export default function OfferBuilder() {
             <div className="bg-white rounded shadow p-3 text-xs space-y-1">
               <div className="flex justify-between">
                 <span className="text-gray-600">Trip (Km):</span>
-                <span className="font-mono">{calc.tripCost.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>
+                <span className="font-mono">{calc.tripCost.toLocaleString('en-GB', { minimumFractionDigits: 2 })} €</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Diets:</span>
-                <span className="font-mono">{calc.diets.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>
+                <span className="font-mono">{calc.diets.toLocaleString('en-GB', { minimumFractionDigits: 2 })} €</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Hotels:</span>
-                <span className="font-mono">{calc.hotelNights.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>
+                <span className="font-mono">{calc.hotelNights.toLocaleString('en-GB', { minimumFractionDigits: 2 })} €</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Trip hours:</span>
@@ -480,19 +487,19 @@ export default function OfferBuilder() {
               </div>
               <div className="flex justify-between text-orange-600 font-bold">
                 <span>TOTAL CAMPAIGN H.:</span>
-                <span className="font-mono">0,00</span>
+                <span className="font-mono">0.00</span>
               </div>
               <div className="flex justify-between text-blue-600 font-bold">
                 <span>TOTAL OFF-GUARDIAN H.:</span>
-                <span className="font-mono">0,00</span>
+                <span className="font-mono">0.00</span>
               </div>
               <div className="flex justify-between border-t pt-1 font-bold">
                 <span>HOURS IMPORT:</span>
-                <span className="font-mono">{calc.hoursImport.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>
+                <span className="font-mono">{calc.hoursImport.toLocaleString('en-GB', { minimumFractionDigits: 2 })} €</span>
               </div>
               <div className="flex justify-between font-bold">
                 <span>EXPENSES IMPORT:</span>
-                <span className="font-mono">{calc.expensesImport.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>
+                <span className="font-mono">{calc.expensesImport.toLocaleString('en-GB', { minimumFractionDigits: 2 })} €</span>
               </div>
             </div>
           </div>
@@ -506,7 +513,7 @@ export default function OfferBuilder() {
               <div className="text-xs font-bold text-gray-500 uppercase mb-1">Comments</div>
               <textarea
                 className="w-full border rounded p-2 text-sm h-16 resize-none"
-                placeholder="Notas de la oferta..."
+                placeholder="Offer notes..."
                 defaultValue={selectedOffer?.general_comments || ''}
               />
             </div>
@@ -516,19 +523,19 @@ export default function OfferBuilder() {
             <div className="bg-white rounded shadow p-3 text-sm space-y-2">
               <div className="flex justify-between">
                 <span className="text-gray-600">Total:</span>
-                <span className="font-mono font-bold">{calc.total.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>
+                <span className="font-mono font-bold">{calc.total.toLocaleString('en-GB', { minimumFractionDigits: 2 })} €</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Spare parts kit:</span>
-                <span className="font-mono">{calc.bkPrice.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>
+                <span className="font-mono">{calc.bkPrice.toLocaleString('en-GB', { minimumFractionDigits: 2 })} €</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Discount:</span>
-                <span className="font-mono text-red-600">{calc.discount.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>
+                <span className="font-mono text-red-600">{calc.discount.toLocaleString('en-GB', { minimumFractionDigits: 2 })} €</span>
               </div>
               <div className="flex justify-between border-t pt-2 text-lg font-bold">
                 <span>Total amount:</span>
-                <span className="font-mono text-blue-700">{calc.totalEnd.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>
+                <span className="font-mono text-blue-700">{calc.totalEnd.toLocaleString('en-GB', { minimumFractionDigits: 2 })} €</span>
               </div>
             </div>
           </div>
@@ -537,16 +544,16 @@ export default function OfferBuilder() {
         {/* Offers list */}
         {offers.length > 0 && (
           <div className="bg-white rounded shadow p-3">
-            <div className="text-xs font-bold text-gray-500 uppercase mb-2">Ofertas del cliente ({offers.length})</div>
+            <div className="text-xs font-bold text-gray-500 uppercase mb-2">Client offers ({offers.length})</div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead className="bg-gray-100">
                   <tr>
                     <th className="px-2 py-1.5 text-left">ID</th>
-                    <th className="px-2 py-1.5 text-left">Fecha</th>
-                    <th className="px-2 py-1.5 text-left">Idioma</th>
-                    <th className="px-2 py-1.5 text-left">Estado</th>
-                    <th className="px-2 py-1.5 text-left">Frecuencia</th>
+                    <th className="px-2 py-1.5 text-left">Date</th>
+                    <th className="px-2 py-1.5 text-left">Language</th>
+                    <th className="px-2 py-1.5 text-left">Status</th>
+                    <th className="px-2 py-1.5 text-left">Frequency</th>
                     <th className="px-2 py-1.5 text-right">Total</th>
                     <th className="px-2 py-1.5 text-right">Total End</th>
                   </tr>
@@ -577,8 +584,8 @@ export default function OfferBuilder() {
                         }`}>{o.status || 'Draft'}</span>
                       </td>
                       <td className="px-2 py-1.5">{o.inspection_frequency || '-'}</td>
-                      <td className="px-2 py-1.5 text-right font-mono">{(o.total || 0).toLocaleString('es-ES', { minimumFractionDigits: 2 })}</td>
-                      <td className="px-2 py-1.5 text-right font-mono font-bold">{(o.total_end || 0).toLocaleString('es-ES', { minimumFractionDigits: 2 })}</td>
+                      <td className="px-2 py-1.5 text-right font-mono">{(o.total || 0).toLocaleString('en-GB', { minimumFractionDigits: 2 })}</td>
+                      <td className="px-2 py-1.5 text-right font-mono font-bold">{(o.total_end || 0).toLocaleString('en-GB', { minimumFractionDigits: 2 })}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -590,7 +597,7 @@ export default function OfferBuilder() {
 
       {loading && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg px-6 py-4 shadow-lg text-sm font-medium">Cargando datos...</div>
+          <div className="bg-white rounded-lg px-6 py-4 shadow-lg text-sm font-medium">Loading data...</div>
         </div>
       )}
     </div>

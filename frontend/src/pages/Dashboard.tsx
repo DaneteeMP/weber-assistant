@@ -25,7 +25,7 @@ export default function Dashboard() {
   if (error) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-red-700">
-        <p className="font-medium">Error al cargar el dashboard</p>
+        <p className="font-medium">Error loading dashboard</p>
         <p className="text-sm mt-1">{error}</p>
       </div>
     );
@@ -35,7 +35,7 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="mt-1 text-sm text-gray-500">Resumen del sistema Weber Guardian</p>
+        <p className="mt-1 text-sm text-gray-500">Guardian system overview</p>
       </div>
 
       {/* Stat Cards */}
@@ -43,7 +43,7 @@ export default function Dashboard() {
         <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500">Clientes</p>
+              <p className="text-sm font-medium text-gray-500">Clients</p>
               <p className="mt-2 text-3xl font-bold text-gray-900">{stats?.total_customers ?? 0}</p>
             </div>
             <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-[#1D4F91]/10">
@@ -56,7 +56,7 @@ export default function Dashboard() {
         <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500">Equipos</p>
+              <p className="text-sm font-medium text-gray-500">Equipment</p>
               <p className="mt-2 text-3xl font-bold text-gray-900">{stats?.total_equipment ?? 0}</p>
             </div>
             <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-green-50">
@@ -69,7 +69,7 @@ export default function Dashboard() {
         <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500">Módulos</p>
+              <p className="text-sm font-medium text-gray-500">Modules</p>
               <p className="mt-2 text-3xl font-bold text-gray-900">{stats?.total_modules ?? 0}</p>
             </div>
             <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-amber-50">
@@ -82,7 +82,7 @@ export default function Dashboard() {
         <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500">Ofertas</p>
+              <p className="text-sm font-medium text-gray-500">Offers</p>
               <p className="mt-2 text-3xl font-bold text-gray-900">{stats?.total_offers ?? 0}</p>
             </div>
             <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-[#1D4F91]/10">
@@ -97,7 +97,7 @@ export default function Dashboard() {
       {/* Countries chart */}
       {stats && stats.countries.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-          <h3 className="text-sm font-semibold text-gray-900 mb-4">Clientes por Subsidiary</h3>
+          <h3 className="text-sm font-semibold text-gray-900 mb-4">Clients by Subsidiary</h3>
           <div className="space-y-3">
             {stats.countries.map((c) => (
               <div key={c.country} className="flex items-center justify-between">
