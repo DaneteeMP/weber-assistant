@@ -25,33 +25,33 @@ export default function OfferBuilder() {
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>([]);
 
   useEffect(() => {
+    let allClientsData: ClientSummary[] = [];
     Promise.all([
-      getClients().then(setClients),
+      getClients().then(c => { allClientsData = c; setClients(c); }),
       getDistances().then(setDistances),
       getPrices().then(p => { if (p.length > 0) setPrices(p[0]); }),
       getBasicKit().then(setBasicKits),
-    ]).then(() => {
+    ]).then(async () => {
       const urlCustomerId = searchParams.get('customer_id');
       const urlOfferId = searchParams.get('offer');
       if (urlCustomerId) {
-        loadClient(urlCustomerId).then((result) => {
-          if (result && urlOfferId) {
-            const found = result.offerData.find(o => o.id_guardian_offer === urlOfferId);
-            if (found) {
-              setSelectedOffer(found);
-              const equipForOffer = result.ceData
-                .filter(ce => ce.id_guardian_offer === found.id_guardian_offer)
-                .map(ce => ce.equipment)
-                .filter((v, i, a) => a.indexOf(v) === i);
-              setSelectedEquipment(equipForOffer);
-            }
+        const result = await loadClient(urlCustomerId, allClientsData);
+        if (result && urlOfferId) {
+          const found = result.offerData.find(o => o.id_guardian_offer === urlOfferId);
+          if (found) {
+            setSelectedOffer(found);
+            const equipForOffer = result.ceData
+              .filter(ce => ce.id_guardian_offer === found.id_guardian_offer)
+              .map(ce => ce.equipment)
+              .filter((v, i, a) => a.indexOf(v) === i);
+            setSelectedEquipment(equipForOffer);
           }
-        });
+        }
       }
     });
   }, []);
 
-  async function loadClient(customerId: string) {
+  async function loadClient(customerId: string, allClients?: ClientSummary[]) {
     setSelectedClientId(customerId);
     setClientSearch('');
     setLoading(true);
@@ -68,7 +68,8 @@ export default function OfferBuilder() {
       setClientEquipmentList(ceData);
       setSummaries(summaryData);
       setOffers(offerData);
-      const cl = clients.find(c => c.customer_id === customerId) || null;
+      const clientList = allClients || clients;
+      const cl = clientList.find(c => c.customer_id === customerId) || null;
       setCustomer(cl);
       setLoading(false);
       return { ceData, offerData };
@@ -270,7 +271,7 @@ export default function OfferBuilder() {
                   className="w-full px-2 py-1.5 border rounded text-sm bg-blue-50"
                 >
                   <option value="">Seleccionar cliente...</option>
-                  {filteredClients.slice(0, 50).map(c => (
+                  {filteredClients.map(c => (
                     <option key={c.customer_id} value={c.customer_id}>
                       {c.customer_id}  {c.account_name}
                     </option>
